@@ -1,0 +1,42 @@
+{
+  "name": "lista_electron",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.tunombre.listaelectron",
+    "productName": "ListaElectron",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icono.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "icono.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "icono.png"
+    }
+  }
+}
+

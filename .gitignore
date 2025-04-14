@@ -1,0 +1,14 @@
+# Dependencias de Node.js
+/node_modules
+
+# Instaladores y builds
+/dist
+
+# Archivos de logs
+*.log
+
+# Configuraciones del sistema (Mac)
+.DS_Store
+
+# Configuraciones de entorno
+/.env
