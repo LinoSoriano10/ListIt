@@ -40,3 +40,7 @@ document.getElementById('formulario').addEventListener('submit', (e) => {
 
 // Al iniciar, cargar listado
 cargarPeliculas();
+
+document.getElementById('nuevo').addEventListener('click', () => {
+  window.api.abrirNueva();
+});

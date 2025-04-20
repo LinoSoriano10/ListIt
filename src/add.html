@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Añadir Película</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      display: flex;
+      flex-direction: row;
+    }
+    #imagen {
+      width: 200px;
+      height: 300px;
+      object-fit: cover;
+      margin-right: 20px;
+      border: 1px solid #ccc;
+    }
+    .info {
+      flex: 1;
+    }
+    input, textarea {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+    }
+    button {
+      padding: 10px 20px;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <img id="imagen" src="placeholder.png" alt="Carátula" />
+    <input type="file" id="fileInput" accept="image/*" style="margin-top: 10px;">
+  </div>
+
+  <div class="info">
+    <input type="text" id="titulo" placeholder="Título">
+    <input type="number" id="anio" placeholder="Año">
+    <textarea id="descripcion" placeholder="Descripción"></textarea>
+    <button id="guardar">Guardar</button>
+  </div>
+
+  <script src="addRenderer.js"></script>
+</body>
+</html>

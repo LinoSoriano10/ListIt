@@ -3,12 +3,37 @@
 <head>
   <meta charset="utf-8">
   <title>Detalles</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      display: flex;
+      flex-direction: row;
+    }
+    #imagen {
+      width: 200px;
+      height: 300px;
+      object-fit: cover;
+      margin-right: 20px;
+      border: 1px solid #ccc;
+    }
+    .info {
+      flex: 1;
+    }
+    h1 {
+      margin-top: 0;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-  <h1 id="titulo"></h1>
-  <p id="anio"></p>
-  <div id="descripcion"></div>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="detailsRenderer.js"></script>  
+  <img id="imagen" src="placeholder.png" alt="Carátula" />
+  <div class="info">
+    <h1 id="titulo"></h1>
+    <p id="anio"></p>
+    <div id="descripcion"></div>
+  </div>
+
+  <script src="detailsRenderer.js"></script>
 </body>
 </html>

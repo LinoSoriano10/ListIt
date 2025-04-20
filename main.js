@@ -55,5 +55,21 @@ function crearVentanaDetalle(id) {
     detalleWin.webContents.send('cargar-detalle', id);
   });
 }
+function crearVentanaNueva() {
+  const addWin = new BrowserWindow({
+    width: 600,
+    height: 500,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  addWin.loadFile('src/add.html');
+}
+ipcMain.on('abrir-nueva', () => {
+  crearVentanaNueva();
+});
 
 
