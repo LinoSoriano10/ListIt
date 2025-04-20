@@ -40,5 +40,3 @@ document.getElementById('formulario').addEventListener('submit', (e) => {
 
 // Al iniciar, cargar listado
 cargarPeliculas();
-
-window.api.abrirDetalle(pelicula.id);

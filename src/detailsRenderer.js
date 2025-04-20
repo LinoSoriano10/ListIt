@@ -1,14 +1,12 @@
-window.api.onCargarDetalle((id) => {
-    window.api.getDetalle(id).then(pelicula => {
-      if (pelicula) {
-        document.getElementById('detalle').innerHTML = `
-          <h1>${pelicula.titulo}</h1>
-          <p><strong>Año:</strong> ${pelicula.anio}</p>
-          <div>${window.api.parseMarkdown(pelicula.descripcion)}</div>
-        `;
-      } else {
-        document.getElementById('detalle').innerHTML = '<p>Película no encontrada</p>';
-      }
-    });
+window.api.onCargarDetalle(async (id) => {
+    const pelicula = await window.api.getDetalle(id);
+  
+    if (pelicula) {
+      document.getElementById('titulo').textContent = pelicula.titulo;
+      document.getElementById('anio').textContent = pelicula.anio;
+      document.getElementById('descripcion').innerHTML = marked.parse(pelicula.descripcion);
+    } else {
+      document.getElementById('titulo').textContent = 'Película no encontrada';
+    }
   });
   

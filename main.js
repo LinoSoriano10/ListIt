@@ -2,12 +2,15 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const db = require('./db');
 
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
     }
   });
 
@@ -41,8 +44,9 @@ function crearVentanaDetalle(id) {
     width: 600,
     height: 400,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: true  // solo aquí porque usas require en el renderer
+      preload: path.join(__dirname, 'preload.js'), 
+      contextIsolation: true,
+      nodeIntegration: false
     }
   });
 
@@ -51,4 +55,5 @@ function crearVentanaDetalle(id) {
     detalleWin.webContents.send('cargar-detalle', id);
   });
 }
+
 

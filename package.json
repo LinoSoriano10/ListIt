@@ -40,6 +40,6 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.9.1",
-    "marked": "^9.1.2"
+    "marked": "^15.0.8"
   }
 }

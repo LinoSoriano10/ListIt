@@ -7,4 +7,3 @@ contextBridge.exposeInMainWorld('api', {
   getDetalle: (id) => ipcRenderer.invoke('get-detalle', id),
   onCargarDetalle: (callback) => ipcRenderer.on('cargar-detalle', (event, id) => callback(id))
 });
-
