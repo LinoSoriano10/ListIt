@@ -37,6 +37,9 @@
       "target": "AppImage",
       "icon": "icono.png"
     }
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.9.1",
+    "marked": "^9.1.2"
   }
 }
-

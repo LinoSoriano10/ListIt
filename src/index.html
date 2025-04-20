@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Mis Series y Películas</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <title>Listado de Películas</title>
 </head>
 <body>
-  <h1>Mis Series y Películas</h1>
-  <input id="titulo" placeholder="Título">
-  <select id="tipo">
-    <option value="pelicula">Película</option>
-    <option value="serie">Serie</option>
-  </select>
-  <button onclick="agregar()">Agregar</button>
-  <ul id="lista"></ul>
+  <h1>Listado de Películas</h1>
+
+  <div id="lista"></div>
+
+  <h2>Añadir Película</h2>
+  <form id="formulario">
+    <input type="text" id="titulo" placeholder="Título" required />
+    <input type="text" id="descripcion" placeholder="Descripción" required />
+    <input type="number" id="anio" placeholder="Año" required />
+    <button type="submit">Guardar</button>
+  </form>
 
   <script src="renderer.js"></script>
 </body>

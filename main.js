@@ -1,17 +1,13 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
-
 const path = require('path');
-const fs = require('fs');
-
-const dataPath = path.join(app.getPath('userData'), 'data.json');
-
+const db = require('./db');
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')   
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
@@ -20,18 +16,39 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-
-  if (!fs.existsSync(dataPath)) {
-    fs.writeFileSync(dataPath, JSON.stringify({ peliculas: [] }, null, 2));
-  }
 });
 
-
-ipcMain.handle('get-datos', async () => {
-  const datos = fs.readFileSync(dataPath);
-  return JSON.parse(datos);
+// IPC handlers
+ipcMain.handle('get-datos', () => {
+  return db.obtenerPeliculas();
 });
 
-ipcMain.handle('guardar-datos', async (event, nuevosDatos) => {
-  fs.writeFileSync(dataPath, JSON.stringify(nuevosDatos, null, 2));
+ipcMain.handle('guardar-datos', (event, pelicula) => {
+  return db.guardarPelicula(pelicula);
 });
+
+ipcMain.handle('get-detalle', (event, id) => {
+  return db.obtenerPeliculaPorId(id);
+});
+
+// Abrir ventana detalle
+ipcMain.on('abrir-detalle', (event, id) => {
+  crearVentanaDetalle(id);
+});
+
+function crearVentanaDetalle(id) {
+  const detalleWin = new BrowserWindow({
+    width: 600,
+    height: 400,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: true  // solo aquí porque usas require en el renderer
+    }
+  });
+
+  detalleWin.loadFile('src/details.html');
+  detalleWin.webContents.once('did-finish-load', () => {
+    detalleWin.webContents.send('cargar-detalle', id);
+  });
+}
+

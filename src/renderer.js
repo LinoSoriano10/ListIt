@@ -1,29 +1,44 @@
-window.api.getDatos().then(datos => {
-    actualizarLista(datos);
-  });
-  
-  function agregar() {
-    const titulo = document.getElementById('titulo').value;
-    const tipo = document.getElementById('tipo').value;
-  
-    if (titulo.trim() === "") return;
-  
-    window.api.getDatos().then(datos => {
-      datos.peliculas.push({ titulo, tipo });
-      window.api.guardarDatos(datos).then(() => {
-        actualizarLista(datos);
-        document.getElementById('titulo').value = '';
-      });
-    });
-  }
-  
-  function actualizarLista(datos) {
+function cargarPeliculas() {
+  window.api.getDatos().then(peliculas => {
     const lista = document.getElementById('lista');
-    lista.innerHTML = '';
-    datos.peliculas.forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = `${item.titulo} (${item.tipo})`;
-      lista.appendChild(li);
+    lista.innerHTML = ''; // Limpiar antes de recargar
+
+    peliculas.forEach(pelicula => {
+      const item = document.createElement('div');
+      item.textContent = `${pelicula.titulo} (${pelicula.anio})`;
+      item.classList.add('item');
+      item.dataset.id = pelicula.id;
+
+      item.addEventListener('click', () => {
+        window.api.abrirDetalle(pelicula.id);
+      });
+
+      lista.appendChild(item);
+    });
+  });
+}
+
+document.getElementById('formulario').addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  const titulo = document.getElementById('titulo').value;
+  const descripcion = document.getElementById('descripcion').value;
+  const anio = parseInt(document.getElementById('anio').value);
+
+  if (titulo && descripcion && anio) {
+    const pelicula = { titulo, descripcion, anio };
+
+    window.api.guardarDatos(pelicula).then(() => {
+      // Recargar listado
+      cargarPeliculas();
+
+      // Limpiar formulario
+      document.getElementById('formulario').reset();
     });
   }
-  
+});
+
+// Al iniciar, cargar listado
+cargarPeliculas();
+
+window.api.abrirDetalle(pelicula.id);
