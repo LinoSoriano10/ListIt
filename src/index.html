@@ -1,40 +1,84 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>Listado de Películas</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 20px; }
-    .container { display: flex; gap: 20px; }
-    #lista { flex: 1; }
-    #detalle { flex: 2; display: none; padding: 20px; border-left: 1px solid #ccc; }
-    #imagenDetalle { width: 200px; height: auto; margin-bottom: 20px; }
-    .item { cursor: pointer; padding: 5px; border-bottom: 1px solid #eee; }
-    .item:hover { background-color: #f0f0f0; }
-    #formulario { margin-top: 20px; }
-    #formulario input, #formulario textarea { width: 100%; margin-bottom: 10px; }
-    #dropArea {
-  border: 2px dashed #ccc;
-  padding: 10px;
-  text-align: center;
-  cursor: pointer;
-  margin-bottom: 20px;
-}
-#dropArea.dragover {
-  border-color: #333;
-}
-#imagenDetalle {
-  width: 200px;
-  height: auto;
-  margin-bottom: 10px;
-}
-input, textarea {
-  width: 100%;
-  margin-bottom: 10px;
-}
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
 
+    .container {
+      display: flex;
+      gap: 20px;
+    }
+
+    #lista {
+      flex: 1;
+    }
+
+    #detalle {
+      flex: 2;
+      display: none;
+      padding: 20px;
+      border-left: 1px solid #ccc;
+    }
+
+    #imagenDetalle {
+      width: 200px;
+      height: auto;
+      margin-bottom: 20px;
+    }
+
+    .item {
+      cursor: pointer;
+      padding: 5px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .item:hover {
+      background-color: #f0f0f0;
+    }
+
+    #formulario {
+      margin-top: 20px;
+    }
+
+    #formulario input,
+    #formulario textarea {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    #dropArea {
+      border: 2px dashed #ccc;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    #dropArea.dragover {
+      border-color: #333;
+    }
+
+    #imagenDetalle {
+      width: 200px;
+      height: auto;
+      margin-bottom: 10px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
+
 <body>
 
   <h1>Listado de Películas</h1>
@@ -44,29 +88,29 @@ input, textarea {
       <div id="peliculas"></div>
 
       <button id="btnNuevaPelicula">Añadir Nueva Película</button>
-
-      <form id="formulario" style="display:none;">
-        <input type="text" id="titulo" placeholder="Título" required />
-        <textarea id="descripcion" placeholder="Descripción" required></textarea>
-        <input type="number" id="anio" placeholder="Año" required />
-        <input type="text" id="imagen" placeholder="Ruta de imagen o URL" />
-        <button type="submit">Guardar</button>
-      </form>
     </div>
 
     <div id="detalle">
       <img id="imagenDetalle" src="" alt="Carátula" />
+
+      <input type="text" id="tituloDetalleInput" placeholder="Título" style="display:none;" />
       <h2 id="tituloDetalle"></h2>
+
+      <input type="number" id="anioDetalleInput" placeholder="Año" style="display:none;" />
       <p id="anioDetalle"></p>
+
+      <textarea id="descripcionDetalleInput" placeholder="Descripción" style="display:none;"></textarea>
       <p id="descripcionDetalle"></p>
-      <button id="eliminarBtn">Eliminar película</button>
+
+      <input type="text" id="imagenDetalleInput" placeholder="Ruta de imagen" style="display:none;" />
+
+      <button id="guardarBtn" style="display:none;">Guardar</button>
+      <button id="editarBtn" style="display:none;">Editar</button>
+      <button id="eliminarBtn">Eliminar</button>
     </div>
-
-    
-    
-
   </div>
 
   <script src="renderer.js"></script>
 </body>
+
 </html>
