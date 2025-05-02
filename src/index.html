@@ -3,16 +3,69 @@
 <head>
   <meta charset="utf-8">
   <title>Listado de Películas</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 20px; }
+    .container { display: flex; gap: 20px; }
+    #lista { flex: 1; }
+    #detalle { flex: 2; display: none; padding: 20px; border-left: 1px solid #ccc; }
+    #imagenDetalle { width: 200px; height: auto; margin-bottom: 20px; }
+    .item { cursor: pointer; padding: 5px; border-bottom: 1px solid #eee; }
+    .item:hover { background-color: #f0f0f0; }
+    #formulario { margin-top: 20px; }
+    #formulario input, #formulario textarea { width: 100%; margin-bottom: 10px; }
+    #dropArea {
+  border: 2px dashed #ccc;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+#dropArea.dragover {
+  border-color: #333;
+}
+#imagenDetalle {
+  width: 200px;
+  height: auto;
+  margin-bottom: 10px;
+}
+input, textarea {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+  </style>
 </head>
 <body>
+
   <h1>Listado de Películas</h1>
 
-  <div id="lista"></div>
+  <div class="container">
+    <div id="lista">
+      <div id="peliculas"></div>
 
-  <h2>Añadir Película</h2>
-  <form id="formulario">
-    <button id="nuevo">Añadir Nueva Película</button>
-  </form>
+      <button id="btnNuevaPelicula">Añadir Nueva Película</button>
+
+      <form id="formulario" style="display:none;">
+        <input type="text" id="titulo" placeholder="Título" required />
+        <textarea id="descripcion" placeholder="Descripción" required></textarea>
+        <input type="number" id="anio" placeholder="Año" required />
+        <input type="text" id="imagen" placeholder="Ruta de imagen o URL" />
+        <button type="submit">Guardar</button>
+      </form>
+    </div>
+
+    <div id="detalle">
+      <img id="imagenDetalle" src="" alt="Carátula" />
+      <h2 id="tituloDetalle"></h2>
+      <p id="anioDetalle"></p>
+      <p id="descripcionDetalle"></p>
+      <button id="eliminarBtn">Eliminar película</button>
+    </div>
+
+    
+    
+
+  </div>
 
   <script src="renderer.js"></script>
 </body>

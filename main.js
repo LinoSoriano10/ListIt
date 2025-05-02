@@ -2,11 +2,10 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const db = require('./db');
 
-
 function createWindow() {
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1000,
+    height: 700,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -34,42 +33,6 @@ ipcMain.handle('get-detalle', (event, id) => {
   return db.obtenerPeliculaPorId(id);
 });
 
-// Abrir ventana detalle
-ipcMain.on('abrir-detalle', (event, id) => {
-  crearVentanaDetalle(id);
+ipcMain.handle('eliminar-pelicula', (event, id) => {
+  return db.eliminarPelicula(id);
 });
-
-function crearVentanaDetalle(id) {
-  const detalleWin = new BrowserWindow({
-    width: 600,
-    height: 400,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'), 
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  detalleWin.loadFile('src/details.html');
-  detalleWin.webContents.once('did-finish-load', () => {
-    detalleWin.webContents.send('cargar-detalle', id);
-  });
-}
-function crearVentanaNueva() {
-  const addWin = new BrowserWindow({
-    width: 600,
-    height: 500,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  addWin.loadFile('src/add.html');
-}
-ipcMain.on('abrir-nueva', () => {
-  crearVentanaNueva();
-});
-
-

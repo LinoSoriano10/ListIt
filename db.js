@@ -11,7 +11,8 @@ db.prepare(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titulo TEXT,
     descripcion TEXT,
-    anio INTEGER
+    anio INTEGER,
+    imagen TEXT
   )
 `).run();
 
@@ -26,9 +27,17 @@ function obtenerPeliculaPorId(id) {
 
 function guardarPelicula(pelicula) {
   return db.prepare(`
-    INSERT INTO peliculas (titulo, descripcion, anio)
-    VALUES (@titulo, @descripcion, @anio)
+    INSERT INTO peliculas (titulo, descripcion, anio, imagen)
+    VALUES (@titulo, @descripcion, @anio, @imagen)
   `).run(pelicula);
 }
+function eliminarPelicula(id) {
+  return db.prepare('DELETE FROM peliculas WHERE id = ?').run(id);
+}
 
-module.exports = { obtenerPeliculas, obtenerPeliculaPorId, guardarPelicula };
+module.exports = { 
+  obtenerPeliculas, 
+  obtenerPeliculaPorId, 
+  guardarPelicula, 
+  eliminarPelicula 
+};
