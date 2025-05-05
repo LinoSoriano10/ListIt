@@ -41,6 +41,9 @@ async function mostrarDetalle(id) {
     document.getElementById('editarBtn').style.display = 'inline-block';
     document.getElementById('eliminarBtn').style.display = 'inline-block';
 
+    document.getElementById('imagenSeleccionContainer').style.display = 'none';
+
+
     document.getElementById('eliminarBtn').onclick = () => {
       if (confirm('¿Seguro que quieres eliminar esta película?')) {
         window.api.eliminarPelicula(id).then(() => {
@@ -69,6 +72,9 @@ function mostrarFormularioNuevaPelicula() {
   document.getElementById('guardarBtn').style.display = 'inline-block';
   document.getElementById('editarBtn').style.display = 'none';
   document.getElementById('eliminarBtn').style.display = 'none';
+
+  document.getElementById('imagenSeleccionContainer').style.display = 'block';
+
 
   document.getElementById('guardarBtn').onclick = () => guardarPelicula();
 }
@@ -110,6 +116,8 @@ function toggleModoEdicion(editar) {
   document.getElementById('descripcionDetalleInput').style.display = editar ? 'block' : 'none';
 
   document.getElementById('imagenDetalleInput').style.display = editar ? 'block' : 'none';
+  document.getElementById('imagenSeleccionContainer').style.display = editar ? 'block' : 'none';
+
 }
 
 function limpiarDetalle() {
@@ -133,3 +141,11 @@ document.getElementById('editarBtn').addEventListener('click', () => {
 
 // Inicial
 cargarPeliculas();
+
+document.getElementById('seleccionarImagenBtn').addEventListener('click', async () => {
+  const ruta = await window.api.seleccionarImagen();
+  if (ruta) {
+    document.getElementById('imagenDetalleInput').value = ruta;
+    document.getElementById('imagenDetalle').src = ruta;
+  }
+});

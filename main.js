@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const db = require('./db');
 
@@ -35,4 +35,16 @@ ipcMain.handle('get-detalle', (event, id) => {
 
 ipcMain.handle('eliminar-pelicula', (event, id) => {
   return db.eliminarPelicula(id);
+});
+
+ipcMain.handle('seleccionar-imagen', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Selecciona una imagen',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Imágenes', extensions: ['jpg', 'png', 'jpeg', 'gif'] }
+    ]
+  });
+
+  return canceled ? null : filePaths[0];
 });

@@ -102,8 +102,11 @@
       <textarea id="descripcionDetalleInput" placeholder="Descripción" style="display:none;"></textarea>
       <p id="descripcionDetalle"></p>
 
-      <input type="text" id="imagenDetalleInput" placeholder="Ruta de imagen" style="display:none;" />
-
+      <div id="imagenSeleccionContainer" style="margin: 10px 0; display: none;">
+        <button id="seleccionarImagenBtn">Seleccionar Imagen</button>
+        <input type="text" id="imagenDetalleInput" readonly style="margin-top: 5px;" />
+      </div>
+      
       <button id="guardarBtn" style="display:none;">Guardar</button>
       <button id="editarBtn" style="display:none;">Editar</button>
       <button id="eliminarBtn">Eliminar</button>
