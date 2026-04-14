@@ -1,5 +1,5 @@
 {
-  "name": "lista_electron",
+  "name": "listit",
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
@@ -9,37 +9,41 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Lino Soriano",
   "license": "ISC",
-  "description": "",
+  "description": "Gestiona tu lista de anime, series y películas",
   "devDependencies": {
     "electron": "^35.1.5",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
   },
   "build": {
-    "appId": "com.tunombre.listaelectron",
-    "productName": "ListaElectron",
+    "appId": "com.listit.app",
+    "productName": "ListIt",
     "directories": {
       "output": "dist"
     },
     "files": [
-      "**/*"
+      "**/*",
+      "!lista_anime.xml",
+      "!dist/**",
+      "!**/*.md"
     ],
     "win": {
       "target": "nsis",
-      "icon": "/src/img/icono.ico"
+      "icon": "src/img/icono.ico"
     },
     "mac": {
       "target": "dmg",
-      "icon": "/src/img/icono.icns"
+      "icon": "src/img/icono.icns"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "/src/img/icono.png"
+      "icon": "src/img/icono.png"
     }
   },
   "dependencies": {
-    "better-sqlite3": "^11.9.1",
-    "marked": "^15.0.8"
+    "better-sqlite3": "^11.9.1"
   }
 }

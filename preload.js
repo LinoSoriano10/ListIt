@@ -1,10 +1,28 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
-  getDatos: () => ipcRenderer.invoke('get-datos'),
-  guardarDatos: (datos) => ipcRenderer.invoke('guardar-datos', datos),
+  getContenido: (filtros) => ipcRenderer.invoke('get-contenido', filtros),
   getDetalle: (id) => ipcRenderer.invoke('get-detalle', id),
-  eliminarPelicula: (id) => ipcRenderer.invoke('eliminar-pelicula', id),
-  actualizarPelicula: (datos) => ipcRenderer.invoke('actualizar-pelicula', datos),
-  seleccionarImagen: () => ipcRenderer.invoke('seleccionar-imagen')
+  guardarContenido: (item) => ipcRenderer.invoke('guardar-contenido', item),
+  actualizarContenido: (item) => ipcRenderer.invoke('actualizar-contenido', item),
+  eliminarContenido: (id) => ipcRenderer.invoke('eliminar-contenido', id),
+  contarEstados: () => ipcRenderer.invoke('contar-estados'),
+  seleccionarImagen: () => ipcRenderer.invoke('seleccionar-imagen'),
+  buscarAnime: (query) => ipcRenderer.invoke('buscar-anime', query),
+  getEntregas: (contenidoId) => ipcRenderer.invoke('get-entregas', contenidoId),
+  guardarEntrega: (entrega) => ipcRenderer.invoke('guardar-entrega', entrega),
+  toggleEntrega: (id) => ipcRenderer.invoke('toggle-entrega', id),
+  renombrarEntrega: (id, titulo) => ipcRenderer.invoke('renombrar-entrega', { id, titulo }),
+  renombrarNumero: (id, numero) => ipcRenderer.invoke('renombrar-numero', { id, numero }),
+  epEntregaDelta: (id, delta) => ipcRenderer.invoke('ep-entrega-delta', { id, delta }),
+  setEpTotalEntrega: (id, total) => ipcRenderer.invoke('set-ep-total-entrega', { id, total }),
+  eliminarEntrega: (id) => ipcRenderer.invoke('eliminar-entrega', id),
+  seleccionarXml: () => ipcRenderer.invoke('seleccionar-xml'),
+  guardarPlantillaXml: (contenido) => ipcRenderer.invoke('guardar-plantilla-xml', contenido),
+  guardarEntregaCompleta: (entrega) => ipcRenderer.invoke('guardar-entrega-completa', entrega),
+  getTags:          ()             => ipcRenderer.invoke('get-tags'),
+  crearTag:         (nombre)       => ipcRenderer.invoke('crear-tag', nombre),
+  eliminarTag:      (id)           => ipcRenderer.invoke('eliminar-tag', id),
+  getTagsContenido: (id)           => ipcRenderer.invoke('get-tags-contenido', id),
+  setTagsContenido: (id, tagIds)   => ipcRenderer.invoke('set-tags-contenido', { id, tagIds }),
 });
