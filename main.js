@@ -154,30 +154,12 @@ ipcMain.handle('eliminar-entrega', (_, id) => {
   return db.eliminarEntrega(id);
 });
 
-// Búsqueda de anime via Jikan (MAL unofficial API) — sin clave necesaria
-ipcMain.handle('buscar-anime', (_, query) => {
-  return new Promise((resolve, reject) => {
-    const url = `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=8&sfw=true`;
+// ── Nombres alternativos ──────────────────────────────────────────────────────
 
-    https.get(url, { headers: { 'User-Agent': 'ListIt/1.0' } }, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          const results = (json.data || []).map((a) => ({
-            titulo: a.title,
-            imagen: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || '',
-            anio: a.year || (a.aired?.from ? new Date(a.aired.from).getFullYear() : null),
-            descripcion: a.synopsis || '',
-            episodios_totales: a.episodes || 0,
-            tipo: 'anime',
-          }));
-          resolve(results);
-        } catch (e) {
-          reject(e);
-        }
-      });
-    }).on('error', reject);
-  });
+ipcMain.handle('get-nombres', (_, contenidoId) => {
+  return db.obtenerNombres(contenidoId);
+});
+
+ipcMain.handle('set-nombres', (_, { id, nombres }) => {
+  return db.setNombres(id, nombres);
 });

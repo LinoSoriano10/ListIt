@@ -1,11 +1,13 @@
 // ─── Estado de la app ─────────────────────────────────────────────────────────
 let filtroEstado    = 'todos';
+let filtroOrden     = 'reciente';    // 'reciente' | 'alfabetico'
 let filtroTag       = null;          // tag activo para filtrar el grid (nombre o null)
 let idActual        = null;          // ID del item abierto en el panel de detalle
 let modoModal       = 'nuevo';       // 'nuevo' | 'editar'
 let tagsModal       = new Set();     // IDs de tags seleccionados en el modal
 let tagsDisponibles = [];            // cache de todos los tags del sistema
 let todosLosItems   = [];            // cache para búsqueda local
+let nombresModal    = [];            // nombres alternativos en el modal
 
 // ─── Helpers de color ─────────────────────────────────────────────────────────
 const STATUS_COLOR = {
@@ -49,11 +51,15 @@ async function actualizarContadores() {
 
 // ─── Renderizar grid ──────────────────────────────────────────────────────────
 async function cargarContenido(termino = '') {
-  const items = await window.api.getContenido({ estado: filtroEstado, tag: filtroTag });
+  const items = await window.api.getContenido({ estado: filtroEstado, tag: filtroTag, orden: filtroOrden });
   todosLosItems = items;
 
   const filtrados = termino
-    ? items.filter(i => i.titulo.toLowerCase().includes(termino.toLowerCase()))
+    ? items.filter(i => {
+        const t = termino.toLowerCase();
+        if (i.titulo.toLowerCase().includes(t)) return true;
+        return (i.nombres || []).some(n => n.toLowerCase().includes(t));
+      })
     : items;
 
   renderGrid(filtrados);
@@ -85,7 +91,7 @@ function renderGrid(items) {
       ? `${item.entregas_vistas} / ${item.total_entregas} entregas`
       : tieneEpisodios && item.episodios_totales > 0
         ? `${item.episodio_actual} / ${item.episodios_totales} ep.`
-        : (item.anio ? String(item.anio) : '');
+        : '';
 
     card.innerHTML = `
       <img class="card-img" src="${getImageSrc(item.imagen)}" alt="${item.titulo}"
@@ -122,7 +128,6 @@ async function mostrarDetalle(id) {
   const epTotal  = item.episodios_totales || 0;
   const pct = epTotal > 0 ? Math.min(100, Math.round((epActual / epTotal) * 100)) : 0;
   const metaParts = [];
-  if (item.anio) metaParts.push(item.anio);
   if (tieneEpisodios && epTotal > 0) metaParts.push(`${epTotal} ep.`);
 
   inner.innerHTML = `
@@ -254,17 +259,10 @@ function renderTagsModal() {
       if (tagsModal.has(tag.id)) tagsModal.delete(tag.id);
       else tagsModal.add(tag.id);
       renderTagsModal();
-      actualizarVisibilidadAnime();
       actualizarVisibilidadEpisodios();
     });
     area.appendChild(btn);
   });
-}
-
-function actualizarVisibilidadAnime() {
-  const tagAnime = tagsDisponibles.find(t => t.nombre === 'anime');
-  const mostrar  = tagAnime && tagsModal.has(tagAnime.id);
-  document.getElementById('animeSearchSection').style.display = mostrar ? 'flex' : 'none';
 }
 
 function actualizarVisibilidadEpisodios() {
@@ -283,16 +281,15 @@ function abrirModal(titulo) {
 
 function cerrarModal() {
   document.getElementById('modal').style.display = 'none';
-  document.getElementById('resultadosBusqueda').innerHTML = '';
-  document.getElementById('buscarAnimeInput').value = '';
+  document.getElementById('newNombreInput').value = '';
 }
 
 function abrirModalNuevo() {
-  modoModal = 'nuevo';
-  tagsModal = new Set();
+  modoModal    = 'nuevo';
+  tagsModal    = new Set();
+  nombresModal = [];
 
   document.getElementById('modalTitulo').value      = '';
-  document.getElementById('modalAnio').value        = '';
   document.getElementById('modalEstado').value      = 'pendiente';
   document.getElementById('modalEpActual').value    = '0';
   document.getElementById('modalEpTotal').value     = '0';
@@ -301,7 +298,7 @@ function abrirModalNuevo() {
   document.getElementById('modalPreview').src       = 'img/no-image.png';
 
   renderTagsModal();
-  actualizarVisibilidadAnime();
+  renderNombresModal();
   actualizarVisibilidadEpisodios();
   abrirModal('Añadir entrada');
 }
@@ -310,7 +307,6 @@ async function abrirModalEditar(item) {
   modoModal = 'editar';
 
   document.getElementById('modalTitulo').value      = item.titulo;
-  document.getElementById('modalAnio').value        = item.anio || '';
   document.getElementById('modalEstado').value      = item.estado;
   document.getElementById('modalEpActual').value    = item.episodio_actual || 0;
   document.getElementById('modalEpTotal').value     = item.episodios_totales || 0;
@@ -320,8 +316,9 @@ async function abrirModalEditar(item) {
 
   const tagsDeLItem = await window.api.getTagsContenido(item.id);
   tagsModal = new Set(tagsDeLItem.map(t => t.id));
+  nombresModal = await window.api.getNombres(item.id);
   renderTagsModal();
-  actualizarVisibilidadAnime();
+  renderNombresModal();
   actualizarVisibilidadEpisodios();
   abrirModal('Editar entrada');
 }
@@ -345,7 +342,7 @@ async function guardarDesdeModal() {
     episodio_actual:   parseInt(document.getElementById('modalEpActual').value)  || 0,
     episodios_totales: parseInt(document.getElementById('modalEpTotal').value)   || 0,
     descripcion:       document.getElementById('modalDescripcion').value.trim(),
-    anio:              parseInt(document.getElementById('modalAnio').value)       || null,
+    anio:              null,
     imagen:            document.getElementById('modalImagen').value.trim(),
     fecha_inicio:      '',
     fecha_fin:         '',
@@ -360,6 +357,7 @@ async function guardarDesdeModal() {
     contenidoId = idActual;
   }
   await window.api.setTagsContenido(contenidoId, [...tagsModal]);
+  await window.api.setNombres(contenidoId, nombresModal);
 
   cerrarModal();
   await cargarContenido();
@@ -370,50 +368,31 @@ async function guardarDesdeModal() {
   }
 }
 
-// ─── Búsqueda de anime (Jikan) ────────────────────────────────────────────────
-async function buscarAnime() {
-  const query = document.getElementById('buscarAnimeInput').value.trim();
-  if (!query) return;
-
-  const contenedor = document.getElementById('resultadosBusqueda');
-  contenedor.innerHTML = '<div class="spinner"></div>';
-
-  try {
-    const resultados = await window.api.buscarAnime(query);
-    contenedor.innerHTML = '';
-
-    if (resultados.length === 0) {
-      contenedor.innerHTML = '<small style="color:var(--text-muted)">Sin resultados</small>';
-      return;
-    }
-
-    resultados.forEach(r => {
-      const card = document.createElement('div');
-      card.className = 'resultado-card';
-      card.innerHTML = `
-        <img src="${r.imagen || 'img/no-image.png'}" alt="${r.titulo}"
-             onerror="this.src='img/no-image.png'">
-        <p>${r.titulo}</p>
-      `;
-      card.addEventListener('click', () => {
-        // Rellenar formulario con datos del resultado
-        document.getElementById('modalTitulo').value      = r.titulo;
-        document.getElementById('modalAnio').value        = r.anio || '';
-        document.getElementById('modalDescripcion').value = r.descripcion || '';
-        document.getElementById('modalImagen').value      = r.imagen || '';
-        document.getElementById('modalPreview').src       = r.imagen || 'img/no-image.png';
-        document.getElementById('modalEpTotal').value     = r.episodios_totales || 0;
-
-        // Marcar card seleccionada
-        contenedor.querySelectorAll('.resultado-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-      });
-      contenedor.appendChild(card);
+// ─── Nombres alternativos ─────────────────────────────────────────────────────
+function renderNombresModal() {
+  const area = document.getElementById('nombresChips');
+  area.innerHTML = '';
+  nombresModal.forEach((nombre, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'nombre-chip';
+    chip.innerHTML = `${nombre}<button class="nombre-chip-del" data-i="${i}" title="Eliminar">×</button>`;
+    chip.querySelector('.nombre-chip-del').addEventListener('click', () => {
+      nombresModal.splice(i, 1);
+      renderNombresModal();
     });
-  } catch (e) {
-    contenedor.innerHTML = '<small style="color:var(--abandonado)">Error al buscar. Comprueba la conexión.</small>';
-  }
+    area.appendChild(chip);
+  });
 }
+
+function agregarNombre() {
+  const input = document.getElementById('newNombreInput');
+  const val = input.value.trim();
+  if (!val || nombresModal.includes(val)) { input.value = ''; return; }
+  nombresModal.push(val);
+  input.value = '';
+  renderNombresModal();
+}
+
 
 // ─── Entregas ─────────────────────────────────────────────────────────────────
 
@@ -610,9 +589,13 @@ let searchTimeout = null;
 document.getElementById('searchBar').addEventListener('input', (e) => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
+    const t = e.target.value.toLowerCase();
     renderGrid(
-      e.target.value
-        ? todosLosItems.filter(i => i.titulo.toLowerCase().includes(e.target.value.toLowerCase()))
+      t
+        ? todosLosItems.filter(i => {
+            if (i.titulo.toLowerCase().includes(t)) return true;
+            return (i.nombres || []).some(n => n.toLowerCase().includes(t));
+          })
         : todosLosItems
     );
   }, 200);
@@ -631,7 +614,6 @@ async function crearYAnadirTag() {
   tagsDisponibles = await window.api.getTags();
   tagsModal.add(tag.id);
   renderTagsModal();
-  actualizarVisibilidadAnime();
   actualizarVisibilidadEpisodios();
 }
 document.getElementById('btnAddTag').addEventListener('click', crearYAnadirTag);
@@ -639,10 +621,10 @@ document.getElementById('newTagInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') crearYAnadirTag();
 });
 
-// ─── Modal: buscar anime ──────────────────────────────────────────────────────
-document.getElementById('btnBuscarAnime').addEventListener('click', buscarAnime);
-document.getElementById('buscarAnimeInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') buscarAnime();
+// ─── Modal: añadir nombre alternativo ─────────────────────────────────────────
+document.getElementById('btnAddNombre').addEventListener('click', agregarNombre);
+document.getElementById('newNombreInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') agregarNombre();
 });
 
 // ─── Modal: seleccionar imagen local ─────────────────────────────────────────
@@ -652,6 +634,37 @@ document.getElementById('btnSeleccionarImg').addEventListener('click', async () 
     document.getElementById('modalImagen').value = ruta;
     document.getElementById('modalPreview').src  = getImageSrc(ruta);
   }
+});
+
+// ─── Modal: previsualizar URL de imagen al escribir/pegar ─────────────────────
+let imgUrlTimeout = null;
+document.getElementById('modalImagen').addEventListener('input', (e) => {
+  clearTimeout(imgUrlTimeout);
+  const val = e.target.value.trim();
+  if (!val) {
+    document.getElementById('modalPreview').src = 'img/no-image.png';
+    return;
+  }
+  imgUrlTimeout = setTimeout(() => {
+    document.getElementById('modalPreview').src = getImageSrc(val);
+  }, 400);
+});
+
+// ─── Sort toggle ──────────────────────────────────────────────────────────────
+document.getElementById('btnSortReciente').addEventListener('click', () => {
+  if (filtroOrden === 'reciente') return;
+  filtroOrden = 'reciente';
+  document.getElementById('btnSortReciente').classList.add('active');
+  document.getElementById('btnSortAlfabetico').classList.remove('active');
+  cargarContenido(document.getElementById('searchBar').value);
+});
+
+document.getElementById('btnSortAlfabetico').addEventListener('click', () => {
+  if (filtroOrden === 'alfabetico') return;
+  filtroOrden = 'alfabetico';
+  document.getElementById('btnSortAlfabetico').classList.add('active');
+  document.getElementById('btnSortReciente').classList.remove('active');
+  cargarContenido(document.getElementById('searchBar').value);
 });
 
 // ─── Modal: guardar / cerrar ──────────────────────────────────────────────────
@@ -829,7 +842,6 @@ function mostrarPrevisualizacion(entradas, fileName) {
   lista.innerHTML = entradas.map(({ contenido, entregas }) => {
     const metaParts = [contenido.tipo || 'sin tipo'];
     if (entregas.length) metaParts.push(`${entregas.length} entregas`);
-    if (contenido.anio) metaParts.push(contenido.anio);
     return `
       <div class="import-preview-item">
         <span class="sdot" style="background:${STATUS_COLOR[contenido.estado]}"></span>

@@ -34,6 +34,15 @@ db.prepare(`
   )
 `).run();
 
+// Migración: añadir updated_at a contenido si no existe
+{
+  const cols = db.prepare('PRAGMA table_info(contenido)').all().map(c => c.name);
+  if (!cols.includes('updated_at')) {
+    db.prepare("ALTER TABLE contenido ADD COLUMN updated_at TEXT DEFAULT (datetime('now','localtime'))").run();
+    db.prepare("UPDATE contenido SET updated_at = datetime('now','localtime') WHERE updated_at IS NULL").run();
+  }
+}
+
 // Migración: añadir columnas de episodios por entrega si no existen
 {
   const cols = db.prepare('PRAGMA table_info(entregas)').all().map(c => c.name);
@@ -112,7 +121,7 @@ for (const nombre of ['anime', 'serie', 'pelicula']) {
 
 // ── Contenido ──────────────────────────────────────────────────────────────────
 
-function obtenerContenido({ estado, tag } = {}) {
+function obtenerContenido({ estado, tag, orden } = {}) {
   const conditions = [];
   const params = [];
 
@@ -129,23 +138,31 @@ function obtenerContenido({ estado, tag } = {}) {
     params.push(tag);
   }
 
-  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  const where   = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  const orderBy = orden === 'alfabetico'
+    ? 'c.titulo ASC'
+    : 'c.updated_at DESC, c.id DESC';
 
   const rows = db.prepare(`
     SELECT c.*,
-      COALESCE(COUNT(DISTINCT e.id), 0)  AS total_entregas,
-      COALESCE(SUM(e.visto), 0)          AS entregas_vistas,
-      GROUP_CONCAT(DISTINCT t.nombre)    AS tags_csv
+      COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id), 0)   AS total_entregas,
+      COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id), 0) AS entregas_vistas,
+      (SELECT GROUP_CONCAT(t.nombre, ',')
+         FROM tags t JOIN contenido_tags ct ON ct.tag_id = t.id
+         WHERE ct.contenido_id = c.id ORDER BY t.nombre)  AS tags_csv,
+      (SELECT GROUP_CONCAT(n.nombre, ',')
+         FROM contenido_nombres n
+         WHERE n.contenido_id = c.id ORDER BY n.id)       AS nombres_csv
     FROM contenido c
-    LEFT JOIN entregas e      ON e.contenido_id = c.id
-    LEFT JOIN contenido_tags ct ON ct.contenido_id = c.id
-    LEFT JOIN tags t           ON t.id = ct.tag_id
     ${where}
-    GROUP BY c.id
-    ORDER BY c.titulo ASC
+    ORDER BY ${orderBy}
   `).all(...params);
 
-  return rows.map(r => ({ ...r, tags: r.tags_csv ? r.tags_csv.split(',') : [] }));
+  return rows.map(r => ({
+    ...r,
+    tags:    r.tags_csv    ? r.tags_csv.split(',')    : [],
+    nombres: r.nombres_csv ? r.nombres_csv.split(',') : [],
+  }));
 }
 
 function obtenerPorId(id) {
@@ -164,9 +181,9 @@ function obtenerPorId(id) {
 function guardarContenido(item) {
   return db.prepare(`
     INSERT INTO contenido
-      (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, fecha_inicio, fecha_fin)
+      (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, fecha_inicio, fecha_fin, updated_at)
     VALUES
-      (@titulo, @tipo, @estado, @episodio_actual, @episodios_totales, @descripcion, @anio, @imagen, @fecha_inicio, @fecha_fin)
+      (@titulo, @tipo, @estado, @episodio_actual, @episodios_totales, @descripcion, @anio, @imagen, @fecha_inicio, @fecha_fin, datetime('now','localtime'))
   `).run({ ...item, tipo: item.tipo || 'anime' });
 }
 
@@ -182,7 +199,8 @@ function actualizarContenido(item) {
       anio              = @anio,
       imagen            = @imagen,
       fecha_inicio      = @fecha_inicio,
-      fecha_fin         = @fecha_fin
+      fecha_fin         = @fecha_fin,
+      updated_at        = datetime('now','localtime')
     WHERE id = @id
   `).run({ ...item, tipo: item.tipo || 'anime' });
 }
@@ -288,6 +306,33 @@ function eliminarEntrega(id) {
   return db.prepare('DELETE FROM entregas WHERE id = ?').run(id);
 }
 
+// ── Nombres alternativos ───────────────────────────────────────────────────────
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS contenido_nombres (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    contenido_id INTEGER NOT NULL,
+    nombre       TEXT    NOT NULL,
+    FOREIGN KEY (contenido_id) REFERENCES contenido(id) ON DELETE CASCADE
+  )
+`).run();
+
+function obtenerNombres(contenidoId) {
+  return db.prepare('SELECT nombre FROM contenido_nombres WHERE contenido_id = ? ORDER BY id ASC')
+    .all(contenidoId)
+    .map(r => r.nombre);
+}
+
+function setNombres(contenidoId, nombres) {
+  db.transaction(() => {
+    db.prepare('DELETE FROM contenido_nombres WHERE contenido_id = ?').run(contenidoId);
+    for (const nombre of nombres) {
+      const n = nombre.trim();
+      if (n) db.prepare('INSERT INTO contenido_nombres (contenido_id, nombre) VALUES (?, ?)').run(contenidoId, n);
+    }
+  })();
+}
+
 module.exports = {
   obtenerContenido,
   obtenerPorId,
@@ -310,4 +355,6 @@ module.exports = {
   actualizarEpEntrega,
   setEpTotalEntrega,
   eliminarEntrega,
+  obtenerNombres,
+  setNombres,
 };

@@ -100,6 +100,35 @@
 
     .spacer { flex: 1; }
 
+    /* ─── Sort toggle ─────────────────────────────────── */
+    .sort-toggle {
+      display: flex;
+      background: var(--s2);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .sort-btn {
+      padding: 6px 13px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .sort-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .sort-btn:hover:not(.active) {
+      background: var(--s3);
+      color: var(--text);
+    }
+
     .btn-import {
       display: flex;
       align-items: center;
@@ -762,51 +791,36 @@
     }
     .tag-filter-clear:hover { background: rgba(124,58,237,0.2); }
 
-    /* Anime search */
-    #animeSearchSection {
+    /* Nombres alternativos */
+    .nombres-chips {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 6px;
+      min-height: 0;
     }
-    .search-row {
-      display: flex;
-      gap: 8px;
-    }
-    .search-row input { flex: 1; }
-
-    #resultadosBusqueda {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      max-height: 220px;
-      overflow-y: auto;
-    }
-    .resultado-card {
-      cursor: pointer;
-      border-radius: 7px;
-      overflow: hidden;
-      border: 2px solid transparent;
-      transition: border-color 0.15s, transform 0.15s;
-      background: var(--s2);
-    }
-    .resultado-card:hover { border-color: var(--accent2); transform: scale(1.03); }
-    .resultado-card.selected { border-color: var(--accent); }
-    .resultado-card img {
-      width: 100%;
-      height: 90px;
-      object-fit: cover;
-      display: block;
-    }
-    .resultado-card p {
-      font-size: 10px;
-      padding: 4px 5px 5px;
-      line-height: 1.3;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
+    .nombre-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      background: var(--s3);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      font-size: 12px;
       color: var(--text);
     }
+    .nombre-chip-del {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .nombre-chip-del:hover { color: var(--abandonado); }
 
     /* Form */
     .form-row { display: flex; gap: 12px; }
@@ -1197,6 +1211,11 @@
 
     <div class="spacer"></div>
 
+    <div class="sort-toggle">
+      <button class="sort-btn active" id="btnSortReciente" title="Más recientes primero">Reciente</button>
+      <button class="sort-btn"        id="btnSortAlfabetico" title="Ordenar A–Z">A–Z</button>
+    </div>
+
     <button class="btn-import" id="btnImport" title="Importar desde XML">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -1296,23 +1315,18 @@
           </div>
         </div>
 
-        <div id="animeSearchSection">
-          <div class="search-row">
-            <input type="text" id="buscarAnimeInput" placeholder="Buscar anime por título...">
-            <button class="btn-primary" id="btnBuscarAnime">Buscar</button>
+        <div class="form-group">
+          <label>Nombres alternativos</label>
+          <div class="nombres-chips" id="nombresChips"></div>
+          <div class="tag-add-row">
+            <input type="text" id="newNombreInput" placeholder="Nombre alternativo...">
+            <button class="btn-secondary" id="btnAddNombre">+ Añadir</button>
           </div>
-          <div id="resultadosBusqueda"></div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group" style="flex:2">
-            <label>Título *</label>
-            <input type="text" id="modalTitulo" placeholder="Título">
-          </div>
-          <div class="form-group" style="flex:1">
-            <label>Año</label>
-            <input type="number" id="modalAnio" placeholder="2024" min="1900" max="2100">
-          </div>
+        <div class="form-group">
+          <label>Título *</label>
+          <input type="text" id="modalTitulo" placeholder="Título">
         </div>
 
         <div class="form-row">
@@ -1346,7 +1360,7 @@
           <div class="imagen-row">
             <img id="modalPreview" src="img/no-image.png" alt="preview">
             <div style="flex:1;display:flex;flex-direction:column;gap:7px">
-              <input type="text" id="modalImagen" placeholder="URL o ruta local" readonly>
+              <input type="text" id="modalImagen" placeholder="Pega una URL o selecciona archivo...">
               <button class="btn-browse" id="btnSeleccionarImg">📁 Examinar archivo...</button>
             </div>
           </div>
