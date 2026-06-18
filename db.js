@@ -41,6 +41,23 @@ db.prepare(`
     db.prepare("ALTER TABLE contenido ADD COLUMN updated_at TEXT DEFAULT (datetime('now','localtime'))").run();
     db.prepare("UPDATE contenido SET updated_at = datetime('now','localtime') WHERE updated_at IS NULL").run();
   }
+
+  // Migración v2: columnas MAL (para C.3 ventana expandida y A.7 sincronización)
+  const malCols = {
+    mal_id:            'INTEGER',
+    score_mal:         'REAL',
+    mal_rank:          'INTEGER',
+    fecha_estreno:     "TEXT DEFAULT ''",
+    fecha_fin_emision: "TEXT DEFAULT ''",
+    estado_emision:    "TEXT DEFAULT ''",
+    estudio:           "TEXT DEFAULT ''",
+    duracion_ep:       "TEXT DEFAULT ''",
+  };
+  for (const [name, type] of Object.entries(malCols)) {
+    if (!cols.includes(name)) {
+      db.prepare(`ALTER TABLE contenido ADD COLUMN ${name} ${type}`).run();
+    }
+  }
 }
 
 // Migración: añadir columnas de episodios por entrega si no existen
@@ -51,6 +68,11 @@ db.prepare(`
   }
   if (!cols.includes('episodios_totales')) {
     db.prepare('ALTER TABLE entregas ADD COLUMN episodios_totales INTEGER DEFAULT 0').run();
+  }
+  if (!cols.includes('posicion')) {
+    db.prepare('ALTER TABLE entregas ADD COLUMN posicion INTEGER DEFAULT 0').run();
+    // Inicializar posicion = id para preservar el orden actual de las entregas existentes
+    db.prepare('UPDATE entregas SET posicion = id WHERE posicion = 0 OR posicion IS NULL').run();
   }
 }
 
@@ -121,6 +143,13 @@ for (const nombre of ['anime', 'serie', 'pelicula']) {
 
 // ── Contenido ──────────────────────────────────────────────────────────────────
 
+/**
+ * Devuelve todos los items aplicando los filtros dados.
+ * Cada item incluye: `tags` (array), `nombres` (array), `total_entregas`,
+ * `entregas_vistas` y `entrega_en_curso_id`.
+ * @param {{ estado?: string, tag?: string, orden?: 'reciente'|'alfabetico' }} filtros
+ * @returns {object[]}
+ */
 function obtenerContenido({ estado, tag, orden } = {}) {
   const conditions = [];
   const params = [];
@@ -138,15 +167,50 @@ function obtenerContenido({ estado, tag, orden } = {}) {
     params.push(tag);
   }
 
-  const where   = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-  const orderBy = orden === 'alfabetico'
-    ? 'c.titulo ASC'
-    : 'c.updated_at DESC, c.id DESC';
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  // Mapa de órdenes. SQLite no soporta `NULLS LAST` directamente,
+  // se simula con `(col IS NULL)` que ordena los NULL al final.
+  const ORDER_MAP = {
+    reciente:   'c.updated_at DESC, c.id DESC',
+    alfabetico: 'c.titulo ASC',
+    anio:       '(c.anio IS NULL) ASC, c.anio DESC, c.titulo ASC',
+    // Cálculo de % completado como expresión en el ORDER BY:
+    completado: `(
+      CASE
+        WHEN (SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id) > 0
+          THEN CAST((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id) AS REAL)
+               / (SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id)
+        WHEN c.episodios_totales > 0
+          THEN CAST(c.episodio_actual AS REAL) / c.episodios_totales
+        ELSE 0
+      END
+    ) DESC, c.titulo ASC`,
+  };
+  const orderBy = ORDER_MAP[orden] || ORDER_MAP.reciente;
 
   const rows = db.prepare(`
     SELECT c.*,
       COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id), 0)   AS total_entregas,
       COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id), 0) AS entregas_vistas,
+      COALESCE((
+        SELECT e.id FROM entregas e
+        WHERE e.contenido_id = c.id
+          AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
+        ORDER BY e.id ASC LIMIT 1
+      ), 0) AS entrega_en_curso_id,
+      (SELECT e.numero FROM entregas e
+        WHERE e.contenido_id = c.id
+          AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
+        ORDER BY e.id ASC LIMIT 1) AS entrega_en_curso_numero,
+      COALESCE((SELECT e.episodio_actual FROM entregas e
+        WHERE e.contenido_id = c.id
+          AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
+        ORDER BY e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_actual,
+      COALESCE((SELECT e.episodios_totales FROM entregas e
+        WHERE e.contenido_id = c.id
+          AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
+        ORDER BY e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_total,
       (SELECT GROUP_CONCAT(t.nombre, ',')
          FROM tags t JOIN contenido_tags ct ON ct.tag_id = t.id
          WHERE ct.contenido_id = c.id ORDER BY t.nombre)  AS tags_csv,
@@ -165,6 +229,7 @@ function obtenerContenido({ estado, tag, orden } = {}) {
   }));
 }
 
+/** @param {number} id @returns {object|null} Item con campo `tags` (array) o null si no existe. */
 function obtenerPorId(id) {
   const row = db.prepare(`
     SELECT c.*, GROUP_CONCAT(DISTINCT t.nombre) AS tags_csv
@@ -178,13 +243,26 @@ function obtenerPorId(id) {
   return { ...row, tags: row.tags_csv ? row.tags_csv.split(',') : [] };
 }
 
+/**
+ * Inserta un nuevo item. Devuelve el resultado de `run()` con `lastInsertRowid`.
+ * @param {object} item
+ * @returns {import('better-sqlite3').RunResult}
+ */
 function guardarContenido(item) {
   return db.prepare(`
     INSERT INTO contenido
-      (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, fecha_inicio, fecha_fin, updated_at)
+      (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, fecha_inicio, fecha_fin, updated_at,
+       mal_id, score_mal, mal_rank, fecha_estreno, fecha_fin_emision, estado_emision, estudio, duracion_ep)
     VALUES
-      (@titulo, @tipo, @estado, @episodio_actual, @episodios_totales, @descripcion, @anio, @imagen, @fecha_inicio, @fecha_fin, datetime('now','localtime'))
-  `).run({ ...item, tipo: item.tipo || 'anime' });
+      (@titulo, @tipo, @estado, @episodio_actual, @episodios_totales, @descripcion, @anio, @imagen, @fecha_inicio, @fecha_fin, datetime('now','localtime'),
+       @mal_id, @score_mal, @mal_rank, @fecha_estreno, @fecha_fin_emision, @estado_emision, @estudio, @duracion_ep)
+  `).run({
+    mal_id: null, score_mal: null, mal_rank: null,
+    fecha_estreno: '', fecha_fin_emision: '', estado_emision: '',
+    estudio: '', duracion_ep: '',
+    ...item,
+    tipo: item.tipo || 'anime',
+  });
 }
 
 function actualizarContenido(item) {
@@ -250,13 +328,32 @@ function setTagsContenido(contenidoId, tagIds) {
 // ── Entregas ───────────────────────────────────────────────────────────────────
 
 function obtenerEntregas(contenidoId) {
-  return db.prepare('SELECT * FROM entregas WHERE contenido_id = ? ORDER BY id ASC').all(contenidoId);
+  return db.prepare(`
+    SELECT * FROM entregas
+    WHERE contenido_id = ?
+    ORDER BY posicion ASC, id ASC
+  `).all(contenidoId);
+}
+
+/**
+ * Reordena las entregas de un contenido según el array `idsOrdenados`.
+ * El primer id del array recibe posicion=1, el segundo 2, etc.
+ * Transaccional.
+ * @param {number} contenidoId
+ * @param {number[]} idsOrdenados
+ */
+function reordenarEntregas(contenidoId, idsOrdenados) {
+  const stmt = db.prepare('UPDATE entregas SET posicion = ? WHERE id = ? AND contenido_id = ?');
+  db.transaction(() => {
+    idsOrdenados.forEach((id, i) => stmt.run(i + 1, id, contenidoId));
+  })();
 }
 
 function guardarEntrega({ contenido_id, titulo }) {
   const { next } = db.prepare('SELECT COUNT(*) + 1 AS next FROM entregas WHERE contenido_id = ?').get(contenido_id);
-  return db.prepare('INSERT INTO entregas (contenido_id, numero, titulo, visto) VALUES (?, ?, ?, 0)')
-    .run(contenido_id, String(next), titulo || '');
+  const { maxPos } = db.prepare('SELECT COALESCE(MAX(posicion), 0) AS maxPos FROM entregas WHERE contenido_id = ?').get(contenido_id);
+  return db.prepare('INSERT INTO entregas (contenido_id, numero, titulo, visto, posicion) VALUES (?, ?, ?, 0, ?)')
+    .run(contenido_id, String(next), titulo || '', maxPos + 1);
 }
 
 function toggleEntrega(id) {
@@ -287,18 +384,20 @@ function setEpTotalEntrega(id, total) {
   return db.prepare('UPDATE entregas SET episodios_totales = ? WHERE id = ?').run(Math.max(0, total), id);
 }
 
-// Inserción completa usada por el importador XML
+// Inserción completa usada por el importador XML y por MAL
 function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_actual, episodios_totales }) {
+  const { maxPos } = db.prepare('SELECT COALESCE(MAX(posicion), 0) AS maxPos FROM entregas WHERE contenido_id = ?').get(contenido_id);
   return db.prepare(`
-    INSERT INTO entregas (contenido_id, numero, titulo, visto, episodio_actual, episodios_totales)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO entregas (contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, posicion)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
     contenido_id,
-    numero          != null ? String(numero) : '1',
-    titulo          || '',
-    visto           ? 1 : 0,
-    episodio_actual  || 0,
+    numero            != null ? String(numero) : '1',
+    titulo            || '',
+    visto             ? 1 : 0,
+    episodio_actual   || 0,
     episodios_totales || 0,
+    maxPos + 1,
   );
 }
 
@@ -333,6 +432,283 @@ function setNombres(contenidoId, nombres) {
   })();
 }
 
+// ── Dashboard ──────────────────────────────────────────────────────────────────
+
+function estadisticasGenerales() {
+  const porEstado = db.prepare('SELECT estado, COUNT(*) as n FROM contenido GROUP BY estado').all();
+
+  const tagStats = db.prepare(`
+    SELECT t.nombre, COUNT(ct.contenido_id) as n
+    FROM tags t
+    LEFT JOIN contenido_tags ct ON ct.tag_id = t.id
+    GROUP BY t.nombre ORDER BY n DESC
+  `).all();
+
+  const items = db.prepare(`
+    SELECT c.episodios_totales, c.estado, c.id, c.titulo, c.imagen,
+      c.episodio_actual,
+      COALESCE((SELECT SUM(e.episodios_totales) FROM entregas e WHERE e.contenido_id = c.id), 0) AS ep_entregas,
+      COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id), 0) AS total_entregas,
+      COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id), 0) AS entregas_vistas,
+      (SELECT t.nombre FROM tags t JOIN contenido_tags ct ON ct.tag_id = t.id
+       WHERE ct.contenido_id = c.id ORDER BY t.nombre LIMIT 1) AS tag_principal
+    FROM contenido c
+  `).all();
+
+  let minutos = 0;
+  for (const c of items) {
+    const eps = c.ep_entregas > 0 ? c.ep_entregas : (c.episodios_totales || 0);
+    if (c.tag_principal === 'pelicula') minutos += (eps > 0 ? eps : 1) * 110;
+    else if (c.tag_principal === 'serie') minutos += eps * 45;
+    else minutos += eps * 24;
+  }
+
+  const viendo = items.filter(c => c.estado === 'viendo');
+
+  // A.8: cobertura de servicios externos (MAL por ahora).
+  const cobertura = db.prepare(`
+    SELECT
+      SUM(CASE WHEN mal_id IS NOT NULL THEN 1 ELSE 0 END) AS con_mal,
+      SUM(CASE WHEN mal_id IS NULL     THEN 1 ELSE 0 END) AS sin_servicio
+    FROM contenido
+  `).get();
+
+  return {
+    porEstado, tagStats, minutos, viendo, total: items.length,
+    cobertura: {
+      con_mal:      cobertura.con_mal      || 0,
+      sin_servicio: cobertura.sin_servicio || 0,
+    },
+  };
+}
+
+function actividadPorMes(limite = 12) {
+  return db.prepare(`
+    SELECT strftime('%Y-%m', updated_at) AS mes, COUNT(*) AS n
+    FROM contenido WHERE updated_at IS NOT NULL
+    GROUP BY mes ORDER BY mes DESC LIMIT ?
+  `).all(limite).reverse();
+}
+
+// ── Gestión de tags ────────────────────────────────────────────────────────────
+
+function actualizarTag(id, nombre) {
+  const n = (nombre || '').trim().toLowerCase();
+  if (!n) return null;
+  try {
+    db.prepare('UPDATE tags SET nombre = ? WHERE id = ?').run(n, id);
+    return db.prepare('SELECT * FROM tags WHERE id = ?').get(id);
+  } catch (_) { return null; } // UNIQUE conflict
+}
+
+/**
+ * Busca entradas con título o nombre alternativo similar al dado.
+ * Coincidencia case-insensitive con LIKE. Útil para detectar duplicados.
+ * @param {string} titulo Título a buscar
+ * @param {number|null} excludeId Id a excluir (al editar, no autocomparar)
+ * @returns {{id:number,titulo:string,estado:string}[]} máx 5 resultados
+ */
+function buscarPorTituloSimilar(titulo, excludeId = null) {
+  const q = (titulo || '').trim().toLowerCase();
+  if (q.length < 2) return [];
+  const like = `%${q}%`;
+  if (excludeId) {
+    return db.prepare(`
+      SELECT DISTINCT c.id, c.titulo, c.estado
+      FROM contenido c
+      LEFT JOIN contenido_nombres n ON n.contenido_id = c.id
+      WHERE (LOWER(c.titulo) LIKE ? OR LOWER(n.nombre) LIKE ?) AND c.id != ?
+      ORDER BY c.titulo ASC LIMIT 5
+    `).all(like, like, excludeId);
+  }
+  return db.prepare(`
+    SELECT DISTINCT c.id, c.titulo, c.estado
+    FROM contenido c
+    LEFT JOIN contenido_nombres n ON n.contenido_id = c.id
+    WHERE LOWER(c.titulo) LIKE ? OR LOWER(n.nombre) LIKE ?
+    ORDER BY c.titulo ASC LIMIT 5
+  `).all(like, like);
+}
+
+function contarPorTag() {
+  return db.prepare(`
+    SELECT t.id, t.nombre, COUNT(ct.contenido_id) AS n
+    FROM tags t
+    LEFT JOIN contenido_tags ct ON ct.tag_id = t.id
+    GROUP BY t.id, t.nombre ORDER BY t.nombre ASC
+  `).all();
+}
+
+// ── Actualización de campos MAL (C.3 / A.7) ───────────────────────────────────
+//
+// REGLAS ESTRICTAS DE PROTECCIÓN DEL PROGRESO DEL USUARIO:
+// - score_mal, mal_rank, estado_emision, estudio, duracion_ep,
+//   fecha_estreno, fecha_fin_emision        → siempre se sobrescriben
+// - episodios_totales (contenido)           → solo si MAL > actual (nunca reduce)
+// - imagen (contenido)                      → solo si no había imagen previa
+// - episodios_totales (entrega)             → solo si MAL > actual
+// - visto, episodio_actual, numero, titulo  → NUNCA se tocan
+// - estado, fecha_inicio, fecha_fin, tags   → NUNCA se tocan
+// - contenido.titulo, descripcion           → NUNCA se tocan (el usuario pudo editarlos)
+
+/**
+ * Actualiza los campos MAL de una entrada con datos frescos de la API Jikan.
+ * @param {number} contenidoId
+ * @param {object} mal datos crudos de Jikan v4
+ * @returns {{ cambios: string[], episodios_actualizados: boolean }} resumen del cambio
+ */
+function actualizarCamposMAL(contenidoId, mal) {
+  const actual = obtenerPorId(contenidoId);
+  if (!actual) return { cambios: [], episodios_actualizados: false };
+
+  const cambios = [];
+  const sets = [];
+  const params = {};
+
+  const set = (campo, nuevo, etiqueta) => {
+    if (nuevo == null || nuevo === '') return;
+    if (actual[campo] !== nuevo) {
+      sets.push(`${campo} = @${campo}`);
+      params[campo] = nuevo;
+      cambios.push(etiqueta || campo);
+    }
+  };
+
+  // Campos siempre sobrescritos
+  set('score_mal',         mal.score      ?? null, 'puntuación');
+  set('mal_rank',          mal.rank       ?? null, 'ranking');
+  set('estudio',           mal.studios?.[0]?.name || '', 'estudio');
+  set('duracion_ep',       mal.duration   || '', 'duración');
+  set('fecha_estreno',     formatearFechaMAL(mal.aired?.from), 'fecha estreno');
+  set('fecha_fin_emision', formatearFechaMAL(mal.aired?.to),   'fecha fin');
+  set('estado_emision',    traducirEstadoEmision(mal.status),   'estado emisión');
+
+  // Campos con regla "solo si MAL > actual"
+  let episodios_actualizados = false;
+  const malEps = mal.episodes || 0;
+  if (malEps > 0 && malEps > (actual.episodios_totales || 0)) {
+    sets.push('episodios_totales = @episodios_totales');
+    params.episodios_totales = malEps;
+    cambios.push('episodios totales');
+    episodios_actualizados = true;
+  }
+
+  // Imagen: solo si no había antes
+  if (!actual.imagen) {
+    const nuevaImg = mal.images?.jpg?.large_image_url || mal.images?.jpg?.image_url || '';
+    if (nuevaImg) {
+      sets.push('imagen = @imagen');
+      params.imagen = nuevaImg;
+      cambios.push('imagen');
+    }
+  }
+
+  if (sets.length > 0) {
+    params.id = contenidoId;
+    db.prepare(`UPDATE contenido SET ${sets.join(', ')}, updated_at = datetime('now','localtime') WHERE id = @id`).run(params);
+  }
+
+  return { cambios, episodios_actualizados };
+}
+
+function formatearFechaMAL(fechaISO) {
+  if (!fechaISO) return '';
+  const d = new Date(fechaISO);
+  if (isNaN(d.getTime())) return '';
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${meses[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function traducirEstadoEmision(status) {
+  const map = {
+    'Finished Airing': 'Finalizado',
+    'Currently Airing': 'En emisión',
+    'Not yet aired': 'No emitido aún',
+  };
+  return map[status] || status || '';
+}
+
+/**
+ * Devuelve las entradas que tienen mal_id (importadas desde MAL).
+ * Útil para sincronización masiva.
+ */
+function obtenerEntradasConMalId() {
+  return db.prepare(`
+    SELECT id, titulo, mal_id, score_mal, estado_emision
+    FROM contenido
+    WHERE mal_id IS NOT NULL
+    ORDER BY titulo ASC
+  `).all();
+}
+
+/**
+ * Devuelve la actividad de una entrada concreta (para ventana expandida C.3).
+ */
+function obtenerActividadDeEntrada(contenidoId, limite = 20) {
+  return db.prepare(`
+    SELECT * FROM actividad
+    WHERE contenido_id = ?
+    ORDER BY fecha DESC, id DESC LIMIT ?
+  `).all(contenidoId, limite);
+}
+
+// ── Import atómico (con rollback) ─────────────────────────────────────────────
+
+function importarEntradaCompleta({ contenido, entregas, tipo }) {
+  return db.transaction(() => {
+    const res   = guardarContenido(contenido);
+    const newId = Number(res.lastInsertRowid);
+    if (tipo) {
+      crearTag(tipo);
+      const tag = db.prepare('SELECT id FROM tags WHERE nombre = ?').get(tipo);
+      if (tag) setTagsContenido(newId, [tag.id]);
+    }
+    for (const e of entregas) guardarEntregaCompleta({ contenido_id: newId, ...e });
+    return { newId };
+  })();
+}
+
+// ── Actividad ─────────────────────────────────────────────────────────────────
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS actividad (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    contenido_id INTEGER,
+    tipo         TEXT NOT NULL,
+    detalle      TEXT DEFAULT '',
+    fecha        TEXT DEFAULT (datetime('now','localtime'))
+  )
+`).run();
+
+function registrarActividad(contenidoId, tipo, detalle = '') {
+  db.prepare('INSERT INTO actividad (contenido_id, tipo, detalle) VALUES (?, ?, ?)').run(contenidoId || null, tipo, detalle);
+}
+
+function obtenerActividad(limite = 30) {
+  return db.prepare(`
+    SELECT a.*, c.titulo
+    FROM actividad a
+    LEFT JOIN contenido c ON c.id = a.contenido_id
+    ORDER BY a.fecha DESC, a.id DESC LIMIT ?
+  `).all(limite);
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+db.prepare('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)').run();
+
+for (const [k, v] of [['tag_defecto', ''], ['orden_defecto', 'reciente'], ['theme', 'dark']]) {
+  db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+}
+
+function getSetting(key) {
+  return db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value ?? null;
+}
+
+function setSetting(key, value) {
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(value ?? ''));
+}
+
 module.exports = {
   obtenerContenido,
   obtenerPorId,
@@ -355,6 +731,20 @@ module.exports = {
   actualizarEpEntrega,
   setEpTotalEntrega,
   eliminarEntrega,
+  estadisticasGenerales,
+  actividadPorMes,
+  actualizarTag,
+  contarPorTag,
+  importarEntradaCompleta,
+  registrarActividad,
+  obtenerActividad,
+  obtenerActividadDeEntrada,
+  getSetting,
+  setSetting,
   obtenerNombres,
   setNombres,
+  buscarPorTituloSimilar,
+  reordenarEntregas,
+  actualizarCamposMAL,
+  obtenerEntradasConMalId,
 };

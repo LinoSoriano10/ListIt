@@ -3,1191 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>ListIt</title>
-  <style>
-    :root {
-      --bg:       #080811;
-      --surface:  #111120;
-      --s2:       #1a1a2e;
-      --s3:       #23233a;
-      --s4:       #2e2e48;
-      --accent:   #7c3aed;
-      --accent2:  #a855f7;
-      --glow:     rgba(124,58,237,0.3);
-      --text:     #eeeef8;
-      --muted:    #7070a0;
-      --border:   #252540;
-      --border2:  #38385a;
-
-      --viendo:     #10b981;
-      --completado: #6366f1;
-      --pendiente:  #5a6480;
-      --en_pausa:   #f59e0b;
-      --abandonado: #f43f5e;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ─── Header ──────────────────────────────────────────── */
-    header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 0 20px;
-      height: 52px;
-      background: var(--surface);
-      position: relative;
-      flex-shrink: 0;
-    }
-    header::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 40%, transparent 100%);
-    }
-
-    .logo {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -1px;
-      background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      flex-shrink: 0;
-      user-select: none;
-    }
-
-    .search-wrap {
-      position: relative;
-      flex: 1;
-      max-width: 340px;
-    }
-    .search-icon {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--muted);
-      pointer-events: none;
-    }
-    #searchBar {
-      width: 100%;
-      padding: 7px 12px 7px 34px;
-      background: var(--s2);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      font-family: inherit;
-    }
-    #searchBar:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--glow);
-    }
-    #searchBar::placeholder { color: var(--muted); }
-
-    .spacer { flex: 1; }
-
-    /* ─── Sort toggle ─────────────────────────────────── */
-    .sort-toggle {
-      display: flex;
-      background: var(--s2);
-      border: 1px solid var(--border2);
-      border-radius: 20px;
-      overflow: hidden;
-    }
-    .sort-btn {
-      padding: 6px 13px;
-      font-size: 12px;
-      font-weight: 600;
-      border: none;
-      background: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.15s, color 0.15s;
-      white-space: nowrap;
-    }
-    .sort-btn.active {
-      background: var(--accent);
-      color: #fff;
-    }
-    .sort-btn:hover:not(.active) {
-      background: var(--s3);
-      color: var(--text);
-    }
-
-    .btn-import {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 7px 14px;
-      background: var(--s2);
-      color: var(--muted);
-      border: 1px solid var(--border2);
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s, background 0.15s;
-      font-family: inherit;
-    }
-    .btn-import:hover {
-      border-color: var(--accent);
-      color: var(--text);
-      background: var(--s3);
-    }
-
-    .btn-add {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 7px 16px;
-      background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
-      color: #fff;
-      border: none;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.15s, box-shadow 0.15s;
-      box-shadow: 0 4px 15px var(--glow);
-      letter-spacing: 0.2px;
-      font-family: inherit;
-    }
-    .btn-add:hover {
-      opacity: 0.9;
-      box-shadow: 0 6px 20px var(--glow);
-    }
-
-    /* ─── Layout ──────────────────────────────────────────── */
-    .layout {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    /* ─── Sidebar ─────────────────────────────────────────── */
-    aside {
-      width: 200px;
-      flex-shrink: 0;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      padding: 18px 0 10px;
-      transition: width 0.25s cubic-bezier(.25,.46,.45,.94),
-                  padding 0.25s, border-color 0.25s;
-    }
-    aside.collapsed {
-      width: 0;
-      padding: 0;
-      border-color: transparent;
-    }
-
-    .btn-sidebar-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      background: none;
-      border: 1px solid var(--border2);
-      border-radius: 8px;
-      color: var(--muted);
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-    .btn-sidebar-toggle:hover {
-      background: var(--s2);
-      color: var(--text);
-      border-color: var(--accent);
-    }
-
-    .sidebar-section {
-      padding: 0 10px;
-      margin-bottom: 22px;
-    }
-
-    .sidebar-label {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      color: var(--muted);
-      padding: 0 8px;
-      margin-bottom: 6px;
-    }
-
-    .filter-btn {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      width: 100%;
-      padding: 7px 8px 7px 10px;
-      background: none;
-      border: none;
-      border-radius: 7px;
-      color: var(--muted);
-      font-size: 13px;
-      cursor: pointer;
-      text-align: left;
-      transition: background 0.15s, color 0.15s;
-      font-family: inherit;
-    }
-    .filter-btn:hover {
-      background: var(--s2);
-      color: var(--text);
-    }
-    .filter-btn.active {
-      background: linear-gradient(90deg, rgba(124,58,237,0.18) 0%, transparent 100%);
-      color: var(--text);
-      font-weight: 600;
-    }
-    .filter-btn.active::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 5px; bottom: 5px;
-      width: 3px;
-      background: linear-gradient(180deg, var(--accent2), var(--accent));
-      border-radius: 0 3px 3px 0;
-    }
-
-    .sdot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .badge {
-      margin-left: auto;
-      font-size: 11px;
-      min-width: 20px;
-      text-align: center;
-      background: var(--s3);
-      color: var(--muted);
-      border-radius: 10px;
-      padding: 1px 6px;
-      transition: background 0.15s, color 0.15s;
-    }
-    .filter-btn.active .badge {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    /* ─── Main ────────────────────────────────────────────── */
-    main {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-    }
-
-    #emptyState {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      height: 60vh;
-      color: var(--muted);
-    }
-    .empty-icon {
-      width: 72px; height: 72px;
-      border-radius: 50%;
-      background: var(--s2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      opacity: 0.5;
-    }
-    #emptyState p { font-size: 16px; font-weight: 600; color: var(--muted); }
-    #emptyState small { font-size: 13px; color: var(--border2); }
-
-    /* ─── Grid de cards ───────────────────────────────────── */
-    #grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-      gap: 14px;
-    }
-
-    /* Card — póster con gradiente superpuesto */
-    .card {
-      position: relative;
-      border-radius: 10px;
-      overflow: hidden;
-      cursor: pointer;
-      border-top: 3px solid var(--sc, var(--accent));
-      background: var(--s2);
-      transition: transform 0.22s cubic-bezier(.25,.46,.45,.94),
-                  box-shadow 0.22s cubic-bezier(.25,.46,.45,.94);
-    }
-    .card.selected {
-      outline: 2px solid var(--accent);
-      outline-offset: -2px;
-      box-shadow: 0 0 0 4px var(--glow);
-    }
-    .card:hover {
-      transform: translateY(-6px) scale(1.02);
-      box-shadow: 0 18px 44px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
-    }
-    .card-img {
-      width: 100%;
-      height: 220px;
-      object-fit: cover;
-      display: block;
-    }
-    .card-grad {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      background: linear-gradient(
-        to top,
-        rgba(8,8,17,0.97) 0%,
-        rgba(8,8,17,0.75) 45%,
-        transparent 100%
-      );
-      padding: 44px 10px 10px;
-    }
-    .card-title {
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1.35;
-      color: #fff;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      margin-bottom: 5px;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
-    }
-    .card-sub {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      color: rgba(238,238,248,0.6);
-    }
-    .card-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--sc, var(--accent));
-      flex-shrink: 0;
-    }
-
-    @keyframes cardIn {
-      from { opacity: 0; transform: translateY(14px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .card { animation: cardIn 0.35s cubic-bezier(.25,.46,.45,.94) both; }
-
-    /* ─── Panel de detalle ────────────────────────────────── */
-    #detailPanel {
-      width: 0;
-      flex-shrink: 0;
-      background: var(--surface);
-      border-left: 1px solid var(--border);
-      overflow: hidden;
-      transition: width 0.28s cubic-bezier(.25,.46,.45,.94);
-    }
-    #detailPanel.open { width: 350px; }
-
-    .detail-inner {
-      width: 350px;
-      height: 100%;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* Detail — hero section */
-    .dh-hero {
-      position: relative;
-      flex-shrink: 0;
-    }
-    .dh-img {
-      width: 100%;
-      height: 270px;
-      object-fit: cover;
-      display: block;
-    }
-    .dh-grad {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        to top,
-        rgba(8,8,17,1) 0%,
-        rgba(8,8,17,0.6) 45%,
-        rgba(8,8,17,0.1) 100%
-      );
-    }
-    .dh-overlay {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      padding: 0 16px 16px;
-    }
-    .dh-chip {
-      display: inline-block;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      padding: 3px 8px;
-      border-radius: 4px;
-      background: rgba(124,58,237,0.35);
-      color: var(--accent2);
-      border: 1px solid rgba(124,58,237,0.4);
-      margin-bottom: 7px;
-    }
-    .dh-title {
-      font-size: 17px;
-      font-weight: 800;
-      line-height: 1.25;
-      color: #fff;
-      margin-bottom: 8px;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    }
-    .dh-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: rgba(0,0,0,0.45);
-      border: 1px solid rgba(255,255,255,0.1);
-      backdrop-filter: blur(6px);
-    }
-    .dh-status-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-    }
-    .dh-close {
-      position: absolute;
-      top: 10px; right: 10px;
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(0,0,0,0.55);
-      color: rgba(255,255,255,0.8);
-      font-size: 17px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-      backdrop-filter: blur(4px);
-    }
-    .dh-close:hover { background: rgba(0,0,0,0.8); color: #fff; }
-
-    /* Detail — body */
-    .dh-body {
-      padding: 14px 16px;
-      flex: 1;
-    }
-    .dh-meta {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 14px;
-    }
-
-    /* Episode section */
-    .dh-ep {
-      background: var(--s2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 14px;
-    }
-    .dh-ep-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-    .dh-ep-frac {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text);
-      text-transform: none;
-      letter-spacing: 0;
-    }
-    .dh-ep-bar {
-      height: 4px;
-      background: var(--s4);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-bottom: 12px;
-    }
-    .dh-ep-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--accent2), var(--accent));
-      border-radius: 2px;
-      transition: width 0.4s cubic-bezier(.25,.46,.45,.94);
-      min-width: 4px;
-    }
-    .dh-ep-controls {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .dh-ep-num {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .dh-ep-btn {
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      border: 1px solid var(--border2);
-      background: var(--s3);
-      color: var(--text);
-      font-size: 18px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-      line-height: 1;
-      padding-bottom: 1px;
-      font-family: inherit;
-    }
-    .dh-ep-btn:hover:not(:disabled) {
-      background: var(--accent);
-      border-color: var(--accent);
-      box-shadow: 0 0 10px var(--glow);
-    }
-    .dh-ep-btn:disabled {
-      opacity: 0.3;
-      cursor: default;
-    }
-
-    .dh-desc {
-      font-size: 13px;
-      line-height: 1.65;
-      color: var(--muted);
-      max-height: 110px;
-      overflow-y: auto;
-    }
-
-    /* Detail — footer */
-    .dh-foot {
-      display: flex;
-      gap: 8px;
-      padding: 12px 16px;
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .dh-btn-edit {
-      flex: 1;
-      padding: 9px;
-      background: var(--s2);
-      border: 1px solid var(--border2);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      font-family: inherit;
-    }
-    .dh-btn-edit:hover { background: var(--s3); border-color: var(--accent); }
-    .dh-btn-del {
-      padding: 9px 14px;
-      background: none;
-      border: 1px solid rgba(244,63,94,0.4);
-      border-radius: 8px;
-      color: var(--abandonado);
-      font-size: 13px;
-      cursor: pointer;
-      transition: background 0.15s;
-      font-family: inherit;
-    }
-    .dh-btn-del:hover { background: rgba(244,63,94,0.1); }
-
-    /* ─── Modal ───────────────────────────────────────────── */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(8,8,17,0.78);
-      backdrop-filter: blur(10px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-    @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.96) translateY(12px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    .modal-box {
-      background: rgba(17,17,32,0.97);
-      border-radius: 14px;
-      border: 1px solid rgba(124,58,237,0.25);
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.04),
-                  0 28px 70px rgba(0,0,0,0.8),
-                  0 0 40px rgba(124,58,237,0.12);
-      width: 520px;
-      max-height: 88vh;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      animation: modalIn 0.22s cubic-bezier(.25,.46,.45,.94) both;
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .modal-header h2 {
-      font-size: 16px;
-      font-weight: 700;
-    }
-    .btn-close-modal {
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      background: var(--s3);
-      border: none;
-      color: var(--muted);
-      font-size: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s, color 0.15s;
-    }
-    .btn-close-modal:hover { background: var(--s4); color: var(--text); }
-
-    .modal-body {
-      padding: 18px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    /* ─── Tags en modal ──────────────────────────────── */
-    .modal-tags-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-    #modalTagsArea {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      min-height: 32px;
-    }
-    .tag-pill {
-      padding: 5px 12px;
-      border-radius: 20px;
-      border: 1px solid var(--border2);
-      background: var(--s2);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-      font-family: inherit;
-      user-select: none;
-    }
-    .tag-pill:hover { border-color: var(--accent2); color: var(--text); }
-    .tag-pill.active {
-      background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
-      border-color: transparent;
-      color: #fff;
-    }
-    .tag-add-row {
-      display: flex;
-      gap: 7px;
-      margin-top: 8px;
-    }
-    .tag-add-row input {
-      flex: 1;
-      font-size: 12px;
-      padding: 6px 10px;
-    }
-    .tag-add-row button {
-      padding: 6px 12px;
-      font-size: 12px;
-      white-space: nowrap;
-    }
-
-    /* ─── Tag chips en grid y detalle ────────────────── */
-    .tag-chip {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      background: rgba(124,58,237,0.25);
-      color: var(--accent2);
-      border: 1px solid rgba(124,58,237,0.3);
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
-      user-select: none;
-    }
-    .tag-chip:hover { background: rgba(124,58,237,0.45); border-color: var(--accent2); }
-    .tag-chip.active-filter {
-      background: linear-gradient(135deg, var(--accent2), var(--accent));
-      color: #fff;
-      border-color: transparent;
-    }
-    .dh-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
-
-
-    /* ─── Filtro activo (tag) en header ──────────────── */
-    .tag-filter-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 20px;
-      background: rgba(124,58,237,0.1);
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      color: var(--accent2);
-      flex-shrink: 0;
-    }
-    .tag-filter-bar strong { font-weight: 700; }
-    .tag-filter-clear {
-      margin-left: auto;
-      background: none;
-      border: 1px solid rgba(124,58,237,0.4);
-      border-radius: 10px;
-      color: var(--accent2);
-      font-size: 11px;
-      padding: 2px 8px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .tag-filter-clear:hover { background: rgba(124,58,237,0.2); }
-
-    /* Nombres alternativos */
-    .nombres-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 6px;
-      min-height: 0;
-    }
-    .nombre-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      background: var(--s3);
-      border: 1px solid var(--border2);
-      border-radius: 20px;
-      font-size: 12px;
-      color: var(--text);
-    }
-    .nombre-chip-del {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 14px;
-      padding: 0;
-      line-height: 1;
-      transition: color 0.15s;
-    }
-    .nombre-chip-del:hover { color: var(--abandonado); }
-
-    /* Form */
-    .form-row { display: flex; gap: 12px; }
-    .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; }
-
-    label {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    input[type="text"],
-    input[type="number"],
-    textarea,
-    select {
-      padding: 8px 11px;
-      background: var(--s2);
-      border: 1px solid var(--border2);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      font-family: inherit;
-      width: 100%;
-    }
-    input:focus, textarea:focus, select:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--glow);
-    }
-    input::placeholder, textarea::placeholder { color: var(--muted); }
-    select option { background: var(--s2); }
-    textarea { resize: vertical; min-height: 72px; }
-
-    .imagen-row {
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
-    }
-    .imagen-row input { flex: 1; }
-
-    .btn-browse {
-      padding: 8px 12px;
-      background: var(--s2);
-      border: 1px solid var(--border2);
-      border-radius: 8px;
-      color: var(--muted);
-      font-size: 12px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: border-color 0.15s, color 0.15s;
-      font-family: inherit;
-    }
-    .btn-browse:hover { border-color: var(--accent); color: var(--text); }
-
-    #modalPreview {
-      width: 82px;
-      height: 115px;
-      object-fit: cover;
-      border-radius: 8px;
-      background: var(--s3);
-      flex-shrink: 0;
-      border: 1px solid var(--border);
-    }
-
-    .ep-input-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .ep-input-row input { text-align: center; }
-    .ep-input-row span { color: var(--muted); font-size: 15px; font-weight: 300; }
-
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      padding: 14px 20px;
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .btn-secondary {
-      padding: 8px 18px;
-      background: none;
-      border: 1px solid var(--border2);
-      border-radius: 8px;
-      color: var(--muted);
-      font-size: 13px;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-      font-family: inherit;
-    }
-    .btn-secondary:hover { border-color: var(--text); color: var(--text); }
-
-    .btn-primary {
-      padding: 8px 20px;
-      background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 4px 12px var(--glow);
-      transition: opacity 0.15s, box-shadow 0.15s;
-      font-family: inherit;
-    }
-    .btn-primary:hover { opacity: 0.9; box-shadow: 0 6px 18px var(--glow); }
-
-    /* Spinner */
-    .spinner {
-      width: 20px; height: 20px;
-      border: 2px solid var(--border2);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: block;
-      margin: 8px auto;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ─── Entregas ─────────────────────────────────────── */
-    .dh-entregas {
-      background: var(--s2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 14px;
-    }
-
-    .dh-entregas-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .dh-entregas-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      color: var(--muted);
-    }
-
-    .entrega-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      margin-bottom: 10px;
-    }
-    .entrega-empty {
-      font-size: 12px;
-      color: var(--muted);
-      text-align: center;
-      padding: 10px 0 4px;
-      font-style: italic;
-    }
-
-    .entrega-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 6px;
-      border-radius: 7px;
-      transition: background 0.1s;
-    }
-    .entrega-item:hover { background: var(--s3); }
-    .entrega-item:hover .entrega-del { opacity: 1; }
-
-    .entrega-check {
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      border: 2px solid var(--border2);
-      background: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      color: transparent;
-      flex-shrink: 0;
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
-      font-family: inherit;
-    }
-    .entrega-check.checked {
-      background: var(--viendo);
-      border-color: var(--viendo);
-      color: #fff;
-    }
-    .entrega-check:hover:not(.checked) { border-color: var(--viendo); }
-
-    .entrega-num {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--accent2);
-      background: rgba(124,58,237,0.12);
-      border: 1px solid rgba(124,58,237,0.2);
-      border-radius: 4px;
-      padding: 2px 6px;
-      white-space: nowrap;
-      max-width: 130px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex-shrink: 0;
-      cursor: default;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .entrega-num:hover {
-      border-color: var(--accent);
-      background: rgba(124,58,237,0.2);
-    }
-    .entrega-num-edit {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 6px;
-      background: var(--s4);
-      border: 1px solid var(--accent);
-      border-radius: 4px;
-      color: var(--accent2);
-      outline: none;
-      width: 120px;
-      font-family: inherit;
-      box-shadow: 0 0 0 2px var(--glow);
-      flex-shrink: 0;
-    }
-
-    .entrega-titulo {
-      flex: 1;
-      font-size: 13px;
-      color: var(--text);
-      cursor: default;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .entrega-titulo:hover { color: var(--accent2); }
-
-    .entrega-titulo-edit {
-      flex: 1;
-      padding: 2px 6px;
-      background: var(--s4);
-      border: 1px solid var(--accent);
-      border-radius: 4px;
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
-      font-family: inherit;
-      box-shadow: 0 0 0 2px var(--glow);
-    }
-
-    .entrega-del {
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      border: none;
-      background: none;
-      color: var(--muted);
-      font-size: 15px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity 0.1s, color 0.1s;
-      flex-shrink: 0;
-      font-family: inherit;
-    }
-    .entrega-del:hover { color: var(--abandonado); }
-
-    /* Contador de episodios inline por entrega */
-    .entrega-ep {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      flex-shrink: 0;
-      margin-left: auto;
-    }
-    .entrega-ep-btn {
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      border: 1px solid var(--border2);
-      background: var(--s3);
-      color: var(--text);
-      font-size: 13px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.12s, border-color 0.12s;
-      line-height: 1;
-      padding-bottom: 1px;
-      font-family: inherit;
-      flex-shrink: 0;
-    }
-    .entrega-ep-btn:hover:not(:disabled) {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-    .entrega-ep-btn:disabled { opacity: 0.25; cursor: default; }
-
-    .entrega-ep-actual {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text);
-      min-width: 14px;
-      text-align: center;
-    }
-    .entrega-ep-sep { font-size: 11px; color: var(--border2); margin: 0 1px; }
-    .entrega-ep-total {
-      font-size: 11px;
-      color: var(--muted);
-      min-width: 14px;
-      text-align: center;
-      cursor: pointer;
-      transition: color 0.12s;
-    }
-    .entrega-ep-total:hover { color: var(--accent2); }
-    .entrega-ep-total-edit {
-      width: 34px;
-      font-size: 11px;
-      padding: 1px 3px;
-      background: var(--s4);
-      border: 1px solid var(--accent);
-      border-radius: 3px;
-      color: var(--text);
-      outline: none;
-      text-align: center;
-      font-family: inherit;
-    }
-
-    .entrega-add {
-      display: flex;
-      gap: 6px;
-      margin-top: 4px;
-    }
-    .entrega-add-input {
-      flex: 1;
-      padding: 6px 10px !important;
-      font-size: 12px !important;
-    }
-    .entrega-add-btn {
-      width: 30px;
-      height: 30px;
-      flex-shrink: 0;
-      border-radius: 8px;
-      border: none;
-      background: var(--accent);
-      color: #fff;
-      font-size: 20px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding-bottom: 2px;
-      transition: background 0.15s, box-shadow 0.15s;
-      font-family: inherit;
-    }
-    .entrega-add-btn:hover { background: var(--accent2); box-shadow: 0 0 8px var(--glow); }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--s4); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
-  </style>
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/components.css">
 </head>
 <body>
 
@@ -1211,10 +29,33 @@
 
     <div class="spacer"></div>
 
-    <div class="sort-toggle">
-      <button class="sort-btn active" id="btnSortReciente" title="Más recientes primero">Reciente</button>
-      <button class="sort-btn"        id="btnSortAlfabetico" title="Ordenar A–Z">A–Z</button>
+    <div class="header-sort">
+      <label class="header-sort-lbl">Orden:</label>
+      <select id="selectOrden" class="header-select" title="Ordenar lista">
+        <option value="reciente">Reciente</option>
+        <option value="alfabetico">A–Z</option>
+        <option value="anio">Año (más nuevo)</option>
+        <option value="completado">% completado</option>
+      </select>
     </div>
+
+    <div class="header-sort">
+      <label class="header-sort-lbl">Tamaño:</label>
+      <select id="selectCardSize" class="header-select" title="Tamaño de las cards">
+        <option value="compact">Compacto</option>
+        <option value="normal" selected>Normal</option>
+        <option value="large">Grande</option>
+      </select>
+    </div>
+
+    <button class="btn-mal-sync" id="btnMalSync" title="Sincronizar entradas con MAL" style="display:none">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+      </svg>
+      MAL
+    </button>
 
     <button class="btn-import" id="btnImport" title="Importar desde XML">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1223,6 +64,21 @@
       </svg>
       Importar
     </button>
+
+    <div style="position:relative">
+      <button class="btn-export" id="btnExport" title="Exportar lista">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 5 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Exportar
+      </button>
+      <div class="export-menu" id="exportMenu" style="display:none">
+        <button id="btnExportXml">📄 Exportar XML</button>
+        <button id="btnExportMd">📝 Exportar Markdown</button>
+        <button id="btnExportBd">💾 Copia de seguridad BD</button>
+      </div>
+    </div>
 
     <button class="btn-add" id="btnNuevo">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -1243,6 +99,29 @@
 
     <!-- Sidebar -->
     <aside id="sidebar">
+      <div class="sidebar-section">
+        <button class="filter-btn-dashboard" id="btnDashboard">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          Dashboard
+        </button>
+        <button class="filter-btn-dashboard" id="btnSettings">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+          Configuración
+        </button>
+        <button class="filter-btn-dashboard" id="btnTagsManager">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+          Gestionar etiquetas
+        </button>
+      </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Estado</div>
         <button class="filter-btn active" data-estado="todos">
@@ -1286,6 +165,51 @@
         <small>Pulsa "Añadir" para empezar</small>
       </div>
       <div id="grid"></div>
+
+      <!-- Dashboard view -->
+      <div id="dashboardView" style="display:none">
+        <div class="dash-kpis" id="dashKpis"></div>
+
+        <div class="dash-charts">
+          <div class="dash-card">
+            <h3>Distribución por estado</h3>
+            <div class="dash-donut-wrap">
+              <canvas id="donutEstado" width="140" height="140"></canvas>
+              <div id="donutLeyenda"></div>
+            </div>
+          </div>
+          <div class="dash-card">
+            <h3>Cobertura de servicios externos</h3>
+            <div class="dash-donut-wrap">
+              <canvas id="donutServicios" width="140" height="140"></canvas>
+              <div id="donutServiciosLeyenda"></div>
+            </div>
+            <button class="btn-secondary dash-mal-sync" id="dashBtnMalSync" style="display:none;width:100%;margin-top:10px">↻ Sincronizar desde MAL</button>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Entradas por etiqueta</h3>
+          <canvas id="barTags"></canvas>
+        </div>
+
+        <div class="dash-card">
+          <h3>Viendo ahora</h3>
+          <div id="dashViendo"></div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Actividad por mes</h3>
+          <div class="dash-actividad-wrap">
+            <canvas id="barActividad" height="90"></canvas>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Actividad reciente</h3>
+          <div id="dashActividad"></div>
+        </div>
+      </div>
     </main>
 
     <!-- Panel de detalle -->
@@ -1325,29 +249,29 @@
         </div>
 
         <div class="form-group">
-          <label>Título *</label>
-          <input type="text" id="modalTitulo" placeholder="Título">
+          <label>Importar desde MyAnimeList</label>
+          <div class="mal-row">
+            <input type="text" id="malInput" placeholder="Nombre o URL de MyAnimeList...">
+            <button class="btn-secondary" id="btnBuscarMAL" type="button">Buscar</button>
+          </div>
+          <div id="malResults"></div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label>Estado</label>
-            <select id="modalEstado">
-              <option value="pendiente">Pendiente</option>
-              <option value="viendo">Viendo</option>
-              <option value="completado">Completado</option>
-              <option value="en_pausa">En Pausa</option>
-              <option value="abandonado">Abandonado</option>
-            </select>
-          </div>
-          <div class="form-group" id="episodiosGroup">
-            <label>Episodios (actual / total)</label>
-            <div class="ep-input-row">
-              <input type="number" id="modalEpActual" min="0" value="0" style="width:58px">
-              <span>/</span>
-              <input type="number" id="modalEpTotal" min="0" value="0" style="width:58px">
-            </div>
-          </div>
+        <div class="form-group">
+          <label>Título *</label>
+          <input type="text" id="modalTitulo" placeholder="Título">
+          <div id="modalDuplicadoAviso" class="dup-aviso" style="display:none"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="modalEstado">
+            <option value="pendiente">Pendiente</option>
+            <option value="viendo">Viendo</option>
+            <option value="completado">Completado</option>
+            <option value="en_pausa">En Pausa</option>
+            <option value="abandonado">Abandonado</option>
+          </select>
         </div>
 
         <div class="form-group">
@@ -1440,100 +364,110 @@
     </div>
   </div>
 
-  <style>
-    .import-pick-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      width: 100%;
-      padding: 22px;
-      background: var(--s2);
-      border: 2px dashed var(--border2);
-      border-radius: 10px;
-      color: var(--text);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      font-family: inherit;
-      margin-bottom: 10px;
-    }
-    .import-pick-btn:hover { border-color: var(--accent); background: var(--s3); }
+  <!-- ─── Modal Configuración ────────────────────── -->
+  <div class="modal-overlay" id="modalSettings" style="display:none">
+    <div class="modal-box" style="width:500px">
+      <div class="modal-header">
+        <h2>Configuración</h2>
+        <button class="btn-close-modal" id="btnCerrarSettings">×</button>
+      </div>
+      <div class="modal-body">
 
-    .import-template-btn {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-size: 12px;
-      cursor: pointer;
-      padding: 4px 0;
-      transition: color 0.15s;
-      font-family: inherit;
-    }
-    .import-template-btn:hover { color: var(--accent2); }
+        <div class="settings-section">
+          <div class="settings-section-title">General</div>
+          <div class="settings-row">
+            <label>Etiqueta por defecto al crear</label>
+            <select id="settingTagDefecto"></select>
+          </div>
+          <div class="settings-row">
+            <label>Orden por defecto</label>
+            <select id="settingOrdenDefecto">
+              <option value="reciente">Reciente</option>
+              <option value="alfabetico">A–Z</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <label>Tema de la interfaz</label>
+            <select id="settingTheme">
+              <option value="dark">Oscuro</option>
+              <option value="light">Claro</option>
+            </select>
+          </div>
+        </div>
 
-    .import-file-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: rgba(16,185,129,0.08);
-      border: 1px solid rgba(16,185,129,0.25);
-      border-radius: 8px;
-      margin-bottom: 14px;
-    }
+        <div class="settings-section" style="margin-top:18px">
+          <div class="settings-section-title">Atajos de teclado</div>
+          <table class="kbd-table">
+            <tr><td><kbd>Ctrl+N</kbd></td><td>Nueva entrada</td></tr>
+            <tr><td><kbd>Ctrl+F</kbd></td><td>Buscar</td></tr>
+            <tr><td><kbd>Ctrl+I</kbd></td><td>Importar</td></tr>
+            <tr><td><kbd>Ctrl+,</kbd></td><td>Configuración</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Cerrar panel / modal activo</td></tr>
+          </table>
+        </div>
 
-    .import-preview-header {
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 8px;
-    }
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btnCancelarSettings">Cancelar</button>
+        <button class="btn-primary"   id="btnGuardarSettings">Guardar</button>
+      </div>
+    </div>
+  </div>
 
-    .import-preview-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      max-height: 240px;
-      overflow-y: auto;
-    }
+  <!-- ─── Modal gestión de etiquetas ─────────────── -->
+  <div class="modal-overlay" id="modalTagsManager" style="display:none">
+    <div class="modal-box" style="width:420px">
+      <div class="modal-header">
+        <h2>Gestionar etiquetas</h2>
+        <button class="btn-close-modal" id="btnCerrarTagsManager">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="tagsManagerList"></div>
+        <div class="tag-add-row" style="margin-top:12px">
+          <input type="text" id="tmNewTagInput" placeholder="Nueva etiqueta...">
+          <button class="btn-secondary" id="tmBtnAddTag">+ Añadir</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btnCerrarTagsManagerOk">Cerrar</button>
+      </div>
+    </div>
+  </div>
 
-    .import-preview-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 10px;
-      background: var(--s2);
-      border-radius: 7px;
-      font-size: 13px;
-    }
-    .import-preview-item .ipi-titulo { flex:1; font-weight: 600; color: var(--text); }
-    .import-preview-item .ipi-meta   { font-size: 11px; color: var(--muted); }
-    .import-preview-item .ipi-warn   { font-size: 11px; color: var(--en_pausa); }
+  <!-- ─── A.6 Barra flotante de selección múltiple ── -->
+  <div class="bulk-bar" id="bulkBar" style="display:none">
+    <span class="bulk-bar-count" id="bulkBarCount">0 seleccionadas</span>
+    <select id="bulkEstadoSelect" class="bulk-bar-select">
+      <option value="">Cambiar estado…</option>
+      <option value="viendo">Viendo</option>
+      <option value="completado">Completado</option>
+      <option value="pendiente">Pendiente</option>
+      <option value="en_pausa">En Pausa</option>
+      <option value="abandonado">Abandonado</option>
+    </select>
+    <select id="bulkTagSelect" class="bulk-bar-select">
+      <option value="">Añadir etiqueta…</option>
+    </select>
+    <button class="bulk-bar-btn bulk-bar-del" id="bulkBtnDel">🗑 Eliminar</button>
+    <button class="bulk-bar-btn" id="bulkBtnCancel">Cancelar</button>
+  </div>
 
-    .import-result {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .import-result-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-    }
-    .import-result-ok  { background: rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color: var(--viendo); }
-    .import-result-err { background: rgba(244,63,94,0.1);  border:1px solid rgba(244,63,94,0.3);  color: var(--abandonado); }
-    .import-result-num { font-size: 26px; font-weight: 800; min-width: 36px; text-align: center; }
-  </style>
+  <!-- ─── A.7 Modal de sincronización MAL ─────────── -->
+  <div class="modal-overlay" id="modalMalSync" style="display:none">
+    <div class="modal-box" style="width:480px">
+      <div class="modal-header">
+        <h2 id="malSyncTitle">Sincronizar desde MAL</h2>
+        <button class="btn-close-modal" id="btnCerrarMalSync">×</button>
+      </div>
+      <div class="modal-body" id="malSyncBody">
+        <!-- Renderizado dinámicamente por mal-sync.js -->
+      </div>
+      <div class="modal-footer" id="malSyncFooter">
+        <button class="btn-secondary" id="btnCancelarMalSync">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
-  <script src="renderer.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
