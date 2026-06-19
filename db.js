@@ -74,6 +74,10 @@ db.prepare(`
     // Inicializar posicion = id para preservar el orden actual de las entregas existentes
     db.prepare('UPDATE entregas SET posicion = id WHERE posicion = 0 OR posicion IS NULL').run();
   }
+  // F0 temporadas: identidad MAL por entrega (para extender temporadas y evitar duplicados)
+  if (!cols.includes('mal_id')) {
+    db.prepare('ALTER TABLE entregas ADD COLUMN mal_id INTEGER').run();
+  }
 }
 
 // Migración: si numero era INTEGER en una instalación anterior, convertir a TEXT
@@ -427,11 +431,11 @@ function setEpTotalEntrega(id, total) {
 }
 
 // Inserción completa usada por el importador XML y por MAL
-function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_actual, episodios_totales }) {
+function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, mal_id }) {
   const { maxPos } = db.prepare('SELECT COALESCE(MAX(posicion), 0) AS maxPos FROM entregas WHERE contenido_id = ?').get(contenido_id);
   return db.prepare(`
-    INSERT INTO entregas (contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, posicion)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO entregas (contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, posicion, mal_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     contenido_id,
     numero            != null ? String(numero) : '1',
@@ -440,6 +444,7 @@ function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_
     episodio_actual   || 0,
     episodios_totales || 0,
     maxPos + 1,
+    mal_id            != null ? mal_id : null,
   );
 }
 

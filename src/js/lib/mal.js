@@ -157,6 +157,7 @@ export function aplicarDatosMAL(animes, renderNombresModal) {
       episodios_totales: anime.episodes || 0,
       episodio_actual:   0,
       visto:             0,
+      mal_id:            anime.mal_id || null,
     }));
   }
 }
