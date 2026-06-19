@@ -14,6 +14,14 @@ function calcularProgreso(item) {
   const tieneEpisodios = !esPelicula && !tieneEntregas;
 
   if (tieneEntregas) {
+    // Temporada única → contador simple, sin prefijo de temporada (decisión 2).
+    if ((item.total_entregas || 0) === 1) {
+      const epA = item.primera_ep_actual || 0;
+      const epT = item.primera_ep_total  || 0;
+      if (epT > 0) return `ep. ${epA}/${epT}`;
+      if (epA > 0) return `ep. ${epA}`;
+      return '';
+    }
     const enCurso = (item.entrega_en_curso_id || 0) > 0;
     if (enCurso && item.entrega_en_curso_numero) {
       const num = item.entrega_en_curso_numero;
@@ -124,6 +132,11 @@ export function renderGrid(items) {
             entrega_en_curso_ep_actual: siguiente ? siguiente.episodio_actual  : 0,
             entrega_en_curso_ep_total:  siguiente ? siguiente.episodios_totales : 0,
           };
+          // Temporada única: mantener fresco el contador simple de la card (decisión 2).
+          if (entregas.length === 1) {
+            updates.primera_ep_actual = entregas[0].episodio_actual  || 0;
+            updates.primera_ep_total  = entregas[0].episodios_totales || 0;
+          }
           Object.assign(item, updates);
           const idx = state.todosLosItems.findIndex(i => i.id === item.id);
           if (idx !== -1) Object.assign(state.todosLosItems[idx], updates);

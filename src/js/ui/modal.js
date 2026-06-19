@@ -183,6 +183,21 @@ export async function guardarDesdeModal() {
       await api.guardarEntregaCompleta({ contenido_id: contenidoId, ...entrega });
     }
     state.malEntregasPendientes = [];
+  } else if (state.modoModal === 'nuevo') {
+    // Modelo uniforme: toda serie nueva nace con al menos una temporada. Las
+    // películas se excluyen (no llevan temporadas). Hereda el progreso del formulario.
+    const esPelicula = state.tagsDisponibles.some(t => state.tagsModal.has(t.id) && t.nombre === 'pelicula');
+    if (!esPelicula) {
+      await api.guardarEntregaCompleta({
+        contenido_id:      contenidoId,
+        numero:            '1',
+        titulo:            '',
+        visto:             item.estado === 'completado' ? 1 : 0,
+        episodio_actual:   item.episodio_actual   || 0,
+        episodios_totales: item.episodios_totales || 0,
+        mal_id:            item.mal_id            || null,
+      });
+    }
   }
 
   cerrarModal();

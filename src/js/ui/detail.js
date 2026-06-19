@@ -75,6 +75,64 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime') {
   const globalEl = document.getElementById('dhEpGlobal');
   if (globalEl) globalEl.style.display = total > 0 ? 'none' : '';
 
+  const refresh = async () => {
+    await cargarEntregas(contenidoId, container, tipo);
+    const fresh = await api.getEntregas(contenidoId);
+    const idx = state.todosLosItems.findIndex(i => i.id === contenidoId);
+    if (idx !== -1) {
+      state.todosLosItems[idx].total_entregas  = fresh.length;
+      state.todosLosItems[idx].entregas_vistas = fresh.filter(e => e.visto).length;
+      if (fresh.length === 1) {
+        state.todosLosItems[idx].primera_ep_actual = fresh[0].episodio_actual  || 0;
+        state.todosLosItems[idx].primera_ep_total  = fresh[0].episodios_totales || 0;
+      }
+      actualizarProgresoCard(contenidoId);
+    }
+    await actualizarContadores();
+  };
+
+  // ── Temporada única → contador simple, sin envoltorio de temporada (decisión 2) ──
+  if (total === 1 && conEp) {
+    const ent  = entregas[0];
+    const epA  = ent.episodio_actual  || 0;
+    const epT  = ent.episodios_totales || 0;
+    const pctU = epT > 0 ? Math.min(100, Math.round((epA / epT) * 100)) : 0;
+    container.innerHTML = `
+      <div class="dh-ep">
+        <div class="dh-ep-header">
+          <span>Episodio actual</span>
+          <span class="dh-ep-frac entrega-ep-total" id="dhUnicaTotal" title="Clic para editar el total">${epA} / ${epT || '?'}</span>
+        </div>
+        <div class="dh-ep-bar"><div class="dh-ep-fill" style="width:${pctU}%"></div></div>
+        <div class="dh-ep-controls">
+          <button class="dh-ep-btn" id="dhUnicaMenos" ${epA <= 0 ? 'disabled' : ''}>−</button>
+          <span class="dh-ep-num">Ep. ${epA}${pctU > 0 ? ` · ${pctU}%` : ''}</span>
+          <button class="dh-ep-btn" id="dhUnicaMas" ${epT > 0 && epA >= epT ? 'disabled' : ''}>+</button>
+        </div>
+        <button class="entrega-add-btn" id="dhAddSeason" title="Convertir en serie de varias temporadas">+ Añadir temporada</button>
+      </div>
+    `;
+    document.getElementById('dhUnicaMas').addEventListener('click', async () => {
+      await api.epEntregaDelta(ent.id, 1);
+      refresh();
+    });
+    document.getElementById('dhUnicaMenos').addEventListener('click', async () => {
+      await api.epEntregaDelta(ent.id, -1);
+      refresh();
+    });
+    document.getElementById('dhUnicaTotal').addEventListener('click', () => {
+      makeEditableNumber(document.getElementById('dhUnicaTotal'), 'entrega-ep-total-edit', async (totalNuevo) => {
+        await api.setEpTotalEntrega(ent.id, totalNuevo);
+        refresh();
+      });
+    });
+    document.getElementById('dhAddSeason').addEventListener('click', async () => {
+      await api.guardarEntrega({ contenido_id: contenidoId, titulo: '' });
+      refresh();
+    });
+    return;
+  }
+
   const filaEntrega = (e) => {
     const epA = e.episodio_actual  || 0;
     const epT = e.episodios_totales || 0;
@@ -119,18 +177,6 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime') {
       </div>
     </div>
   `;
-
-  const refresh = async () => {
-    await cargarEntregas(contenidoId, container, tipo);
-    const fresh = await api.getEntregas(contenidoId);
-    const idx = state.todosLosItems.findIndex(i => i.id === contenidoId);
-    if (idx !== -1) {
-      state.todosLosItems[idx].total_entregas  = fresh.length;
-      state.todosLosItems[idx].entregas_vistas = fresh.filter(e => e.visto).length;
-      actualizarProgresoCard(contenidoId);
-    }
-    await actualizarContadores();
-  };
 
   container.querySelectorAll('.entrega-check').forEach(btn => {
     btn.addEventListener('click', async () => {

@@ -219,6 +219,12 @@ function obtenerContenido({ estado, tag, orden } = {}) {
         WHERE e.contenido_id = c.id
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
         ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_total,
+      COALESCE((SELECT e.episodio_actual FROM entregas e
+        WHERE e.contenido_id = c.id
+        ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS primera_ep_actual,
+      COALESCE((SELECT e.episodios_totales FROM entregas e
+        WHERE e.contenido_id = c.id
+        ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS primera_ep_total,
       (SELECT GROUP_CONCAT(t.nombre, ',')
          FROM tags t JOIN contenido_tags ct ON ct.tag_id = t.id
          WHERE ct.contenido_id = c.id ORDER BY t.nombre)  AS tags_csv,
@@ -759,6 +765,38 @@ db.prepare('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEX
 
 for (const [k, v] of [['tag_defecto', ''], ['orden_defecto', 'reciente'], ['theme', 'dark']]) {
   db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)').run(k, v);
+}
+
+// F1: modelo uniforme de temporadas — toda serie debe tener al menos una entrega.
+// Por cada contenido (que no sea película) sin entregas, crea una "temporada 1"
+// heredando su progreso plano (episodios y mal_id). Se ejecuta aquí, tras crear
+// todas las tablas. Idempotente: solo afecta a los que no tienen ninguna entrega,
+// así que es seguro en cada arranque.
+{
+  const sinEntregas = db.prepare(`
+    SELECT c.id, c.episodio_actual, c.episodios_totales, c.mal_id, c.estado
+    FROM contenido c
+    WHERE NOT EXISTS (SELECT 1 FROM entregas e WHERE e.contenido_id = c.id)
+      AND NOT EXISTS (
+        SELECT 1 FROM contenido_tags ct
+        JOIN tags t ON t.id = ct.tag_id
+        WHERE ct.contenido_id = c.id AND t.nombre = 'pelicula'
+      )
+  `).all();
+  if (sinEntregas.length > 0) {
+    const insert = db.prepare(`
+      INSERT INTO entregas (contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, posicion, mal_id)
+      VALUES (?, '1', '', ?, ?, ?, 1, ?)
+    `);
+    db.transaction(() => {
+      for (const c of sinEntregas) {
+        const epA   = c.episodio_actual  || 0;
+        const epT   = c.episodios_totales || 0;
+        const visto = (c.estado === 'completado' || (epT > 0 && epA >= epT)) ? 1 : 0;
+        insert.run(c.id, visto, epA, epT, c.mal_id || null);
+      }
+    })();
+  }
 }
 
 function getSetting(key) {
