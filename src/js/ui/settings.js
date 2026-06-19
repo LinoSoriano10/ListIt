@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
+import { cargarContenido } from './content.js';
 
 export function aplicarTema(tema) {
   if (tema === 'light') document.documentElement.setAttribute('data-theme', 'light');
@@ -45,16 +46,12 @@ export async function guardarSettings() {
     api.setSetting('theme',         theme),
   ]);
 
-  // Aplicar orden inmediatamente
+  // Reflejar el nuevo orden por defecto en el selector del header y aplicarlo de inmediato.
   state.filtroOrden = ordenDefecto || 'reciente';
-  const btnR = document.getElementById('btnSortReciente');
-  const btnA = document.getElementById('btnSortAlfabetico');
-  if (ordenDefecto === 'alfabetico') {
-    btnA.classList.add('active'); btnR.classList.remove('active');
-  } else {
-    btnR.classList.add('active'); btnA.classList.remove('active');
-  }
+  const selOrden = document.getElementById('selectOrden');
+  if (selOrden) selOrden.value = state.filtroOrden;
 
   aplicarTema(theme);
   cerrarSettings();
+  await cargarContenido(document.getElementById('searchBar')?.value || '');
 }
