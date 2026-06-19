@@ -165,6 +165,7 @@ document.addEventListener('keydown', e => {
   const enInput = ['INPUT','TEXTAREA','SELECT'].includes(tag);
 
   if (e.key === 'Escape') {
+    if ($('modalAtajos')?.style.display !== 'none')     { cerrarAtajos(); return; }
     if ($('modalMalSync')?.style.display !== 'none')    { cerrarMalSync(); return; }
     if ($('modalSettings')?.style.display !== 'none')   { cerrarSettings(); return; }
     if ($('modalTagsManager').style.display !== 'none') { cerrarTagsManager(); return; }
@@ -181,6 +182,8 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.key === ',')              { e.preventDefault(); abrirSettings(); }
   // B.7 Deshacer
   if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); deshacer(); }
+  // Ayuda de atajos
+  if (e.key === '?')                             { e.preventDefault(); abrirAtajos(); }
 });
 
 // ─── Dashboard ────────────────────────────────────────────
@@ -198,6 +201,16 @@ $('btnCancelarSettings').addEventListener('click', cerrarSettings);
 $('btnGuardarSettings').addEventListener('click', guardarSettings);
 $('modalSettings').addEventListener('click', e => {
   if (e.target === $('modalSettings')) cerrarSettings();
+});
+
+// ─── Atajos de teclado (ayuda) ─────────────────────────────
+const abrirAtajos  = () => { $('modalAtajos').style.display = 'flex'; };
+const cerrarAtajos = () => { $('modalAtajos').style.display = 'none'; };
+$('btnAtajos').addEventListener('click', abrirAtajos);
+$('btnCerrarAtajos').addEventListener('click', cerrarAtajos);
+$('btnCerrarAtajosOk').addEventListener('click', cerrarAtajos);
+$('modalAtajos').addEventListener('click', e => {
+  if (e.target === $('modalAtajos')) cerrarAtajos();
 });
 
 // ─── Tags Manager ──────────────────────────────────────────

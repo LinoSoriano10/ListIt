@@ -122,6 +122,14 @@
           </svg>
           Gestionar etiquetas
         </button>
+        <button class="filter-btn-dashboard" id="btnAtajos">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Atajos de teclado
+        </button>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Estado</div>
@@ -389,21 +397,34 @@
           </div>
         </div>
 
-        <div class="settings-section" style="margin-top:18px">
-          <div class="settings-section-title">Atajos de teclado</div>
-          <table class="kbd-table">
-            <tr><td><kbd>Ctrl+N</kbd></td><td>Nueva entrada</td></tr>
-            <tr><td><kbd>Ctrl+F</kbd></td><td>Buscar</td></tr>
-            <tr><td><kbd>Ctrl+I</kbd></td><td>Importar</td></tr>
-            <tr><td><kbd>Ctrl+,</kbd></td><td>Configuración</td></tr>
-            <tr><td><kbd>Esc</kbd></td><td>Cerrar panel / modal activo</td></tr>
-          </table>
-        </div>
-
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btnCancelarSettings">Cancelar</button>
         <button class="btn-primary"   id="btnGuardarSettings">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Modal Atajos de teclado ────────────────── -->
+  <div class="modal-overlay" id="modalAtajos" style="display:none">
+    <div class="modal-box" style="width:420px">
+      <div class="modal-header">
+        <h2>Atajos de teclado</h2>
+        <button class="btn-close-modal" id="btnCerrarAtajos">×</button>
+      </div>
+      <div class="modal-body">
+        <table class="kbd-table">
+          <tr><td><kbd>Ctrl+N</kbd></td><td>Nueva entrada</td></tr>
+          <tr><td><kbd>Ctrl+F</kbd></td><td>Buscar</td></tr>
+          <tr><td><kbd>Ctrl+I</kbd></td><td>Importar</td></tr>
+          <tr><td><kbd>Ctrl+,</kbd></td><td>Configuración</td></tr>
+          <tr><td><kbd>Ctrl+Z</kbd></td><td>Deshacer</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Cerrar panel / modal activo</td></tr>
+          <tr><td><kbd>?</kbd></td><td>Mostrar estos atajos</td></tr>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btnCerrarAtajosOk">Cerrar</button>
       </div>
     </div>
   </div>
