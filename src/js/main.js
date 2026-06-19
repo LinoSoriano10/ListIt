@@ -26,6 +26,7 @@ import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema } from './u
 import { cerrarDetalle, mostrarDetalle } from './ui/detail.js';
 import { inicializarBulk, salirSeleccion, refrescarTagsBulk } from './ui/bulk-actions.js';
 import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
+import { abrirAddSeason, cerrarAddSeason, inicializarAddSeason } from './ui/add-season.js';
 import { deshacer } from './lib/undo.js';
 
 const $ = (id) => document.getElementById(id);
@@ -166,6 +167,7 @@ document.addEventListener('keydown', e => {
 
   if (e.key === 'Escape') {
     if ($('modalAtajos')?.style.display !== 'none')     { cerrarAtajos(); return; }
+    if ($('modalAddSeason')?.style.display !== 'none')  { cerrarAddSeason(); return; }
     if ($('modalMalSync')?.style.display !== 'none')    { cerrarMalSync(); return; }
     if ($('modalSettings')?.style.display !== 'none')   { cerrarSettings(); return; }
     if ($('modalTagsManager').style.display !== 'none') { cerrarTagsManager(); return; }
@@ -212,6 +214,15 @@ $('btnCerrarAtajosOk').addEventListener('click', cerrarAtajos);
 $('modalAtajos').addEventListener('click', e => {
   if (e.target === $('modalAtajos')) cerrarAtajos();
 });
+
+// ─── Añadir temporada desde MAL (F2) ───────────────────────
+$('btnAddTemporada').addEventListener('click', () => abrirAddSeason());
+$('btnCerrarAddSeason').addEventListener('click', cerrarAddSeason);
+$('btnCancelarAddSeason').addEventListener('click', cerrarAddSeason);
+$('modalAddSeason').addEventListener('click', e => {
+  if (e.target === $('modalAddSeason')) cerrarAddSeason();
+});
+inicializarAddSeason();
 
 // ─── Tags Manager ──────────────────────────────────────────
 $('btnTagsManager').addEventListener('click', abrirTagsManager);

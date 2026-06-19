@@ -109,7 +109,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime') {
           <span class="dh-ep-num">Ep. ${epA}${pctU > 0 ? ` · ${pctU}%` : ''}</span>
           <button class="dh-ep-btn" id="dhUnicaMas" ${epT > 0 && epA >= epT ? 'disabled' : ''}>+</button>
         </div>
-        <button class="entrega-add-btn" id="dhAddSeason" title="Convertir en serie de varias temporadas">+ Añadir temporada</button>
+        <button class="dh-add-season" id="dhAddSeason" title="Convertir en serie de varias temporadas">+ Añadir temporada</button>
       </div>
     `;
     document.getElementById('dhUnicaMas').addEventListener('click', async () => {

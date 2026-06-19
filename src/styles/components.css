@@ -410,6 +410,26 @@
   opacity: 0.3;
   cursor: default;
 }
+.dh-add-season {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px;
+  background: transparent;
+  border: 1px dashed var(--border2);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dh-add-season:hover {
+  background: var(--s4);
+  color: var(--text);
+  border-color: var(--accent);
+}
 
 .dh-desc {
   font-size: 13px;
