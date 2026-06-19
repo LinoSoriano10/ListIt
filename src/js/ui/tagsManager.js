@@ -22,10 +22,10 @@ async function refrescarLista() {
       <span class="tm-nombre" data-id="${t.id}">${escapeHtml(t.nombre)}</span>
       <span class="tm-count" title="${t.n} entradas">${t.n}</span>
       <div class="tm-actions">
-        <button class="tm-btn tm-btn-rename" data-id="${t.id}" title="Renombrar">✏</button>
         ${BUILTIN.includes(t.nombre)
-          ? `<span class="tm-lock" title="Etiqueta predefinida — no se puede eliminar">🔒</span>`
-          : `<button class="tm-btn tm-btn-del" data-id="${t.id}" data-n="${t.n}" data-nombre="${encodeURIComponent(t.nombre)}" title="Eliminar">×</button>`}
+          ? `<span class="tm-lock" title="Etiqueta predefinida — no se puede renombrar ni eliminar">🔒</span>`
+          : `<button class="tm-btn tm-btn-rename" data-id="${t.id}" title="Renombrar">✏</button>
+             <button class="tm-btn tm-btn-del" data-id="${t.id}" data-n="${t.n}" data-nombre="${encodeURIComponent(t.nombre)}" title="Eliminar">×</button>`}
       </div>
     </div>
   `).join('');

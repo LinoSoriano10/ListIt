@@ -118,8 +118,12 @@ db.prepare(`
   )
 `).run();
 
+// Etiquetas predefinidas: su nombre es semántico (la UI depende de 'pelicula'
+// literalmente), por eso no se pueden renombrar ni eliminar.
+const TAGS_BUILTIN = ['anime', 'serie', 'pelicula'];
+
 // Seed: tags por defecto
-for (const nombre of ['anime', 'serie', 'pelicula']) {
+for (const nombre of TAGS_BUILTIN) {
   db.prepare('INSERT OR IGNORE INTO tags (nombre) VALUES (?)').run(nombre);
 }
 
@@ -339,6 +343,9 @@ function crearTag(nombre) {
 }
 
 function eliminarTag(id) {
+  // No permitir eliminar etiquetas predefinidas (defensa a nivel de datos).
+  const actual = db.prepare('SELECT nombre FROM tags WHERE id = ?').get(id);
+  if (actual && TAGS_BUILTIN.includes(actual.nombre)) return { changes: 0 };
   return db.prepare('DELETE FROM tags WHERE id = ?').run(id);
 }
 
@@ -530,6 +537,9 @@ function actividadPorMes(limite = 12) {
 function actualizarTag(id, nombre) {
   const n = (nombre || '').trim().toLowerCase();
   if (!n) return null;
+  // No permitir renombrar etiquetas predefinidas (defensa a nivel de datos).
+  const actual = db.prepare('SELECT nombre FROM tags WHERE id = ?').get(id);
+  if (actual && TAGS_BUILTIN.includes(actual.nombre)) return null;
   try {
     db.prepare('UPDATE tags SET nombre = ? WHERE id = ?').run(n, id);
     return db.prepare('SELECT * FROM tags WHERE id = ?').get(id);
