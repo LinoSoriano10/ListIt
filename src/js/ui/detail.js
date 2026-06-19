@@ -11,6 +11,7 @@ import { actualizarContadores } from './contadores.js';
 import { actualizarTagFilterBar } from './tags.js';
 import { abrirModalEditar } from './modal.js';
 import { cargarContenido } from './content.js';
+import { abrirAddSeason } from './add-season.js';
 
 export function cerrarDetalle() {
   state.idActual = null;
@@ -316,6 +317,11 @@ export async function mostrarDetalle(id) {
     <div class="dh-foot">
       <button class="dh-btn-edit" id="btnEditarDetalle">✏ Editar</button>
       <button class="dh-btn-expand" id="btnExpandirDetalle" title="Abrir vista ampliada">⤢</button>
+      ${!esPelicula ? `<button class="dh-btn-expand" id="btnAddTempDetalle" title="Añadir temporada desde MAL">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:middle">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+        </svg>
+      </button>` : ''}
       ${item.mal_id ? '<button class="dh-btn-mal" id="btnActualizarMAL" title="Refrescar desde MyAnimeList">↻ MAL</button>' : ''}
       <button class="dh-btn-del" id="btnEliminarDetalle">Eliminar</button>
     </div>
@@ -369,6 +375,9 @@ export async function mostrarDetalle(id) {
   document.getElementById('btnExpandirDetalle').onclick = () => {
     api.abrirDetalleExpandido(id);
   };
+
+  const btnAddTemp = document.getElementById('btnAddTempDetalle');
+  if (btnAddTemp) btnAddTemp.onclick = () => abrirAddSeason(id);
 
   // ── C.3 Actualizar desde MAL ──
   const btnMal = document.getElementById('btnActualizarMAL');

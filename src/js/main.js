@@ -12,12 +12,6 @@ import {
   renderNombresModal,
   inicializarDuplicados,
 } from './ui/modal.js';
-import {
-  abrirImport,
-  cerrarImport,
-  manejarPickXml,
-  descargarPlantilla,
-} from './ui/import.js';
 import { buscarEnMAL, aplicarDatosMAL } from './lib/mal.js';
 import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
 import { cargarDashboard } from './ui/dashboard.js';
@@ -137,16 +131,6 @@ $('modal').addEventListener('click', (e) => {
   if (e.target === $('modal')) cerrarModal();
 });
 
-// ─── Importación XML ──────────────────────────────────────
-$('btnImport').addEventListener('click', abrirImport);
-$('btnCerrarImport').addEventListener('click', cerrarImport);
-
-$('modalImport').addEventListener('click', (e) => {
-  if (e.target === $('modalImport')) cerrarImport();
-});
-
-$('btnPickXml').addEventListener('click', manejarPickXml);
-$('btnDescargarPlantilla').addEventListener('click', descargarPlantilla);
 
 // ─── MyAnimeList ──────────────────────────────────────────
 $('btnBuscarMAL').addEventListener('click', () => {
@@ -171,7 +155,6 @@ document.addEventListener('keydown', e => {
     if ($('modalMalSync')?.style.display !== 'none')    { cerrarMalSync(); return; }
     if ($('modalSettings')?.style.display !== 'none')   { cerrarSettings(); return; }
     if ($('modalTagsManager').style.display !== 'none') { cerrarTagsManager(); return; }
-    if ($('modalImport').style.display !== 'none')      { cerrarImport(); return; }
     if ($('modal').style.display !== 'none')            { cerrarModal(); return; }
     if (state.modoSeleccion)                            { salirSeleccion(); return; }
     if ($('detailPanel').classList.contains('open'))    { cerrarDetalle(); return; }
@@ -180,7 +163,6 @@ document.addEventListener('keydown', e => {
 
   if (e.ctrlKey && e.key === 'n')              { e.preventDefault(); abrirModalNuevo(); }
   if (e.ctrlKey && e.key === 'f')              { e.preventDefault(); $('searchBar').focus(); $('searchBar').select(); }
-  if (e.ctrlKey && e.key === 'i')              { e.preventDefault(); abrirImport(); }
   if (e.ctrlKey && e.key === ',')              { e.preventDefault(); abrirSettings(); }
   // B.7 Deshacer
   if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); deshacer(); }
@@ -259,27 +241,8 @@ window.__onMalSyncDone = async () => {
   if (state.vistaActual === 'dashboard') await cargarDashboard();
 };
 
-// ─── Exportar ──────────────────────────────────────────────
-const exportMenu = $('exportMenu');
-
-$('btnExport').addEventListener('click', e => {
-  e.stopPropagation();
-  exportMenu.style.display = exportMenu.style.display === 'none' ? '' : 'none';
-});
-document.addEventListener('click', () => { exportMenu.style.display = 'none'; });
-
-$('btnExportXml').addEventListener('click', async () => {
-  exportMenu.style.display = 'none';
-  await api.exportarXml();
-});
-$('btnExportMd').addEventListener('click', async () => {
-  exportMenu.style.display = 'none';
-  await api.exportarMarkdown();
-});
-$('btnExportBd').addEventListener('click', async () => {
-  exportMenu.style.display = 'none';
-  await api.exportarBd();
-});
+// ─── Copia de seguridad (.db) ──────────────────────────────
+$('btnExportBd').addEventListener('click', () => api.exportarBd());
 
 // ─── Inicio ───────────────────────────────────────────────
 (async () => {

@@ -58,28 +58,13 @@
       MAL
     </button>
 
-    <button class="btn-import" id="btnImport" title="Importar desde XML">
+    <button class="btn-export" id="btnExportBd" title="Guardar copia de seguridad (.db)">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        <polyline points="7 10 12 5 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
       </svg>
-      Importar
+      Copia de seguridad
     </button>
-
-    <div style="position:relative">
-      <button class="btn-export" id="btnExport" title="Exportar lista">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-          <polyline points="7 10 12 5 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-        Exportar
-      </button>
-      <div class="export-menu" id="exportMenu" style="display:none">
-        <button id="btnExportXml">📄 Exportar XML</button>
-        <button id="btnExportMd">📝 Exportar Markdown</button>
-        <button id="btnExportBd">💾 Copia de seguridad BD</button>
-      </div>
-    </div>
 
     <button class="btn-add" id="btnNuevo">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -317,70 +302,6 @@
     </div>
   </div>
 
-  <!-- ─── Modal de importación XML ───────────────────── -->
-  <div class="modal-overlay" id="modalImport" style="display:none">
-    <div class="modal-box" style="width:500px">
-
-      <div class="modal-header">
-        <h2 id="importTitle">Importar desde XML</h2>
-        <button class="btn-close-modal" id="btnCerrarImport">×</button>
-      </div>
-
-      <div class="modal-body" id="importBody">
-
-        <!-- Paso 1: selección de archivo -->
-        <div id="importStep1">
-          <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px">
-            Importa varias entradas a la vez desde un archivo <strong style="color:var(--text)">.xml</strong>
-            con el formato ListIt. Los campos obligatorios son solo el <strong style="color:var(--text)">título</strong>;
-            el resto son opcionales.
-          </p>
-
-          <button class="import-pick-btn" id="btnPickXml">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            Seleccionar archivo .xml
-          </button>
-
-          <button class="import-template-btn" id="btnDescargarPlantilla">
-            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Descargar plantilla de ejemplo
-          </button>
-        </div>
-
-        <!-- Paso 2: vista previa -->
-        <div id="importStep2" style="display:none">
-          <div class="import-file-row">
-            <svg width="14" height="14" fill="none" stroke="var(--viendo)" stroke-width="2" viewBox="0 0 24 24">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            <span id="importFileName" style="font-size:13px;color:var(--text)"></span>
-          </div>
-
-          <div class="import-preview-header" id="importPreviewHeader"></div>
-
-          <div class="import-preview-list" id="importPreviewList"></div>
-        </div>
-
-        <!-- Paso 3: resultado -->
-        <div id="importStep3" style="display:none">
-          <div class="import-result" id="importResult"></div>
-        </div>
-
-      </div>
-
-      <div class="modal-footer" id="importFooter">
-        <button class="btn-secondary" id="btnCancelarImport">Cancelar</button>
-      </div>
-
-    </div>
-  </div>
-
   <!-- ─── Modal Configuración ────────────────────── -->
   <div class="modal-overlay" id="modalSettings" style="display:none">
     <div class="modal-box" style="width:500px">
@@ -424,7 +345,6 @@
         <table class="kbd-table">
           <tr><td><kbd>Ctrl+N</kbd></td><td>Nueva entrada</td></tr>
           <tr><td><kbd>Ctrl+F</kbd></td><td>Buscar</td></tr>
-          <tr><td><kbd>Ctrl+I</kbd></td><td>Importar</td></tr>
           <tr><td><kbd>Ctrl+,</kbd></td><td>Configuración</td></tr>
           <tr><td><kbd>Ctrl+Z</kbd></td><td>Deshacer</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>Cerrar panel / modal activo</td></tr>

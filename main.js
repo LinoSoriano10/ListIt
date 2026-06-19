@@ -1,9 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const https = require('https');
-const fs   = require('fs');
 const { hacerBackupDiario, exportarBd } = require('./lib/backup');
-const { generarXml, generarMarkdown }   = require('./lib/export');
 const log  = require('./lib/logger');
 const db   = require('./db');
 
@@ -67,6 +65,17 @@ function abrirDetalleWindow(contenidoId) {
   });
   detailWindow.on('closed', () => { detailWindow = null; });
 }
+
+// Endurecimiento de navegación (buenas prácticas de seguridad de Electron):
+// la app no abre ventanas con window.open ni navega fuera de sus ficheros
+// locales, así que bloqueamos ambas cosas por si algún contenido inesperado
+// lo intentara. Se registra antes de crear ventanas para cubrirlas todas.
+app.on('web-contents-created', (_, contents) => {
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  contents.on('will-navigate', (event, url) => {
+    if (!url.startsWith('file://')) event.preventDefault();
+  });
+});
 
 app.whenReady().then(createWindow);
 
@@ -146,29 +155,6 @@ ipcMain.handle('seleccionar-imagen', async () => {
   return canceled ? null : filePaths[0];
 });
 
-// ── Importación XML ───────────────────────────────────────────────────────────
-
-ipcMain.handle('seleccionar-xml', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
-    title: 'Seleccionar archivo XML de ListIt',
-    properties: ['openFile'],
-    filters: [{ name: 'Archivos XML', extensions: ['xml'] }],
-  });
-  if (canceled) return null;
-  return fs.readFileSync(filePaths[0], 'utf-8');
-});
-
-ipcMain.handle('guardar-plantilla-xml', async (_, contenido) => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
-    title: 'Guardar plantilla XML',
-    defaultPath: 'listit_plantilla.xml',
-    filters: [{ name: 'Archivos XML', extensions: ['xml'] }],
-  });
-  if (canceled) return false;
-  fs.writeFileSync(filePath, contenido, 'utf-8');
-  return true;
-});
-
 ipcMain.handle('guardar-entrega-completa', (_, entrega) => {
   return db.guardarEntregaCompleta(entrega);
 });
@@ -238,12 +224,6 @@ ipcMain.handle('obtener-actividad', (_, limite) => {
   return db.obtenerActividad(limite || 30);
 });
 
-// ── Import atómico ────────────────────────────────────────────────────────────
-
-ipcMain.handle('importar-entrada-completa', (_, { contenido, entregas, tipo }) => {
-  return db.importarEntradaCompleta({ contenido, entregas, tipo });
-});
-
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 ipcMain.handle('get-setting', (_, key) => {
@@ -265,34 +245,6 @@ ipcMain.handle('contar-por-tag', () => {
 });
 
 // ── Exportación ───────────────────────────────────────────────────────────────
-
-ipcMain.handle('exportar-xml', async () => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
-    title: 'Exportar lista como XML',
-    defaultPath: `listit-export-${new Date().toISOString().slice(0,10)}.xml`,
-    filters: [{ name: 'Archivos XML', extensions: ['xml'] }],
-  });
-  if (canceled) return false;
-
-  const items    = db.obtenerContenido({});
-  const filas    = items.map(item => ({ item, entregas: db.obtenerEntregas(item.id) }));
-  fs.writeFileSync(filePath, generarXml(filas), 'utf-8');
-  return true;
-});
-
-ipcMain.handle('exportar-markdown', async () => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
-    title: 'Exportar lista como Markdown',
-    defaultPath: `listit-export-${new Date().toISOString().slice(0,10)}.md`,
-    filters: [{ name: 'Archivos Markdown', extensions: ['md'] }],
-  });
-  if (canceled) return false;
-
-  const items = db.obtenerContenido({});
-  const filas = items.map(item => ({ item }));
-  fs.writeFileSync(filePath, generarMarkdown(filas), 'utf-8');
-  return true;
-});
 
 ipcMain.handle('exportar-bd', async () => {
   const { canceled, filePath } = await dialog.showSaveDialog({

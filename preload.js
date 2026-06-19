@@ -35,11 +35,6 @@ contextBridge.exposeInMainWorld('api', {
   setEpTotalEntrega:     (id, total)   => ipcRenderer.invoke('set-ep-total-entrega', { id, total }),
   eliminarEntrega:       (id)          => ipcRenderer.invoke('eliminar-entrega', id),
   guardarEntregaCompleta:(e)           => ipcRenderer.invoke('guardar-entrega-completa', e),
-  importarEntradaCompleta:(payload)    => ipcRenderer.invoke('importar-entrada-completa', payload),
-
-  // Importación XML
-  seleccionarXml:      ()          => ipcRenderer.invoke('seleccionar-xml'),
-  guardarPlantillaXml: (contenido) => ipcRenderer.invoke('guardar-plantilla-xml', contenido),
 
   // Tags
   getTags:          ()           => ipcRenderer.invoke('get-tags'),
@@ -60,8 +55,6 @@ contextBridge.exposeInMainWorld('api', {
   setSetting: (key, value)  => ipcRenderer.invoke('set-setting', { key, value }),
 
   // Exportación
-  exportarXml:      () => ipcRenderer.invoke('exportar-xml'),
-  exportarMarkdown: () => ipcRenderer.invoke('exportar-markdown'),
   exportarBd:       () => ipcRenderer.invoke('exportar-bd'),
 
   // A.4 Duplicados

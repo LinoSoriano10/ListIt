@@ -3,7 +3,6 @@
 // en un bucle con rate limit.
 
 import { api } from '../api.js';
-import { toast } from '../lib/toast.js';
 import { escapeHtml } from '../lib/escape.js';
 
 const JIKAN_DELAY_MS = 400; // Jikan permite ~60 req/min con burst de 3
