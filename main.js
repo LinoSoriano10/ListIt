@@ -331,14 +331,19 @@ ipcMain.handle('obtener-actividad-entrada', (_, { id, limite }) => {
 // ── C.3 / A.7 Actualización desde MAL ─────────────────────────────────────────
 // El renderer hace el fetch a Jikan y pasa el JSON resultante.
 
-ipcMain.handle('actualizar-desde-mal', (_, { id, mal }) => {
+ipcMain.handle('actualizar-desde-mal', (event, { id, mal }) => {
   const resultado = db.actualizarCamposMAL(id, mal);
   if (resultado.cambios.length > 0) {
     db.registrarActividad(id, 'mal_sync', `Actualizado: ${resultado.cambios.join(', ')}`);
   }
-  // Notificar a ventanas abiertas para que refresquen
-  if (detailWindow && !detailWindow.isDestroyed()) {
-    detailWindow.webContents.send('detalle-refrescar', id);
+  // Refrescar las ventanas abiertas distintas de la que originó el cambio. La
+  // ventana que dispara la actualización ya se recarga sola, y la sincronización
+  // masiva corre en la principal y refresca al terminar, así evitamos recargar
+  // la principal una vez por entrada durante el bucle.
+  for (const win of [mainWin, detailWindow]) {
+    if (win && !win.isDestroyed() && win.webContents !== event.sender) {
+      win.webContents.send('detalle-refrescar', id);
+    }
   }
   return resultado;
 });

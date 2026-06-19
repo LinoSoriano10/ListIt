@@ -23,7 +23,7 @@ import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
 import { cargarDashboard } from './ui/dashboard.js';
 import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
 import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema } from './ui/settings.js';
-import { cerrarDetalle } from './ui/detail.js';
+import { cerrarDetalle, mostrarDetalle } from './ui/detail.js';
 import { inicializarBulk, salirSeleccion, refrescarTagsBulk } from './ui/bulk-actions.js';
 import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
 import { deshacer } from './lib/undo.js';
@@ -32,6 +32,17 @@ const $ = (id) => document.getElementById(id);
 
 // Fallback de imágenes rotas sin handlers inline (compatible con la CSP estricta).
 instalarFallbackImagenes();
+
+// Cuando otra ventana (el detalle expandido) actualiza datos desde MAL, el
+// proceso principal nos avisa para no quedarnos con datos obsoletos: recargamos
+// el grid conservando el filtro/búsqueda y re-renderizamos el panel solo si está
+// abierto en esa misma entrada.
+window.events?.on('detalle-refrescar', (id) => {
+  cargarContenido($('searchBar').value);
+  if (state.idActual === id && $('detailPanel').classList.contains('open')) {
+    mostrarDetalle(id);
+  }
+});
 
 // ─── Filtros del sidebar ──────────────────────────────────
 document.querySelectorAll('.filter-btn[data-estado]').forEach(btn => {
