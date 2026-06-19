@@ -201,20 +201,20 @@ function obtenerContenido({ estado, tag, orden } = {}) {
         SELECT e.id FROM entregas e
         WHERE e.contenido_id = c.id
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
-        ORDER BY e.id ASC LIMIT 1
+        ORDER BY e.posicion ASC, e.id ASC LIMIT 1
       ), 0) AS entrega_en_curso_id,
       (SELECT e.numero FROM entregas e
         WHERE e.contenido_id = c.id
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
-        ORDER BY e.id ASC LIMIT 1) AS entrega_en_curso_numero,
+        ORDER BY e.posicion ASC, e.id ASC LIMIT 1) AS entrega_en_curso_numero,
       COALESCE((SELECT e.episodio_actual FROM entregas e
         WHERE e.contenido_id = c.id
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
-        ORDER BY e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_actual,
+        ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_actual,
       COALESCE((SELECT e.episodios_totales FROM entregas e
         WHERE e.contenido_id = c.id
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
-        ORDER BY e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_total,
+        ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_total,
       (SELECT GROUP_CONCAT(t.nombre, ',')
          FROM tags t JOIN contenido_tags ct ON ct.tag_id = t.id
          WHERE ct.contenido_id = c.id ORDER BY t.nombre)  AS tags_csv,
