@@ -715,6 +715,16 @@ db.prepare(`
   )
 `).run();
 
+// ── Índices ─────────────────────────────────────────────────────────────────────
+// Aceleran las consultas por clave foránea. La consulta del grid hace varias
+// subconsultas correlacionadas por fila sobre `entregas`; sin estos índices cada
+// una es un full scan. Idempotentes: se crean también en BDs ya existentes.
+// La dirección `contenido_tags(contenido_id)` ya la cubre la PK compuesta.
+db.prepare('CREATE INDEX IF NOT EXISTS idx_entregas_contenido         ON entregas(contenido_id)').run();
+db.prepare('CREATE INDEX IF NOT EXISTS idx_contenido_tags_tag         ON contenido_tags(tag_id)').run();
+db.prepare('CREATE INDEX IF NOT EXISTS idx_contenido_nombres_contenido ON contenido_nombres(contenido_id)').run();
+db.prepare('CREATE INDEX IF NOT EXISTS idx_actividad_contenido         ON actividad(contenido_id)').run();
+
 function registrarActividad(contenidoId, tipo, detalle = '') {
   db.prepare('INSERT INTO actividad (contenido_id, tipo, detalle) VALUES (?, ?, ?)').run(contenidoId || null, tipo, detalle);
 }
