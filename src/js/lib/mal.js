@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
+import { escapeHtml } from './escape.js';
 
 /**
  * Refresca una entrada concreta desde la API de Jikan.
@@ -64,10 +65,10 @@ export async function buscarEnMAL(query, onSelect) {
         .filter(Boolean).join(' · ');
       el.innerHTML = `
         <span class="mal-checkbox-icon"></span>
-        <img class="mal-result-img" src="${imgSrc}" alt="" onerror="this.style.display='none'">
+        <img class="mal-result-img" src="${escapeHtml(imgSrc)}" alt="" onerror="this.style.display='none'">
         <div class="mal-result-info">
-          <div class="mal-result-title">${anime.title || ''}</div>
-          <div class="mal-result-meta">${meta}</div>
+          <div class="mal-result-title">${escapeHtml(anime.title || '')}</div>
+          <div class="mal-result-meta">${escapeHtml(meta)}</div>
         </div>`;
 
       el.addEventListener('click', () => {

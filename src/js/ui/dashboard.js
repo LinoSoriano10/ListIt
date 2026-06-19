@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { STATUS_COLOR, STATUS_LABEL } from '../lib/colors.js';
 import { getImageSrc } from '../lib/image.js';
+import { escapeHtml } from '../lib/escape.js';
 
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
@@ -230,10 +231,10 @@ function renderViendo(items) {
 
     return `
       <div class="dash-viendo-item">
-        <img class="dash-viendo-img" src="${getImageSrc(c.imagen)}"
+        <img class="dash-viendo-img" src="${escapeHtml(getImageSrc(c.imagen))}"
              onerror="this.src='img/no-image.png'" alt="">
         <div class="dash-viendo-info">
-          <div class="dash-viendo-titulo">${c.titulo}</div>
+          <div class="dash-viendo-titulo">${escapeHtml(c.titulo)}</div>
           ${textoProgreso ? `
             <div class="dash-viendo-progreso">
               <div class="dh-ep-bar" style="margin:4px 0 2px">
@@ -312,8 +313,8 @@ function renderActividadReciente(eventos) {
       <div class="dash-act-item">
         <span class="dash-act-icon">${icon}</span>
         <div class="dash-act-info">
-          <span class="dash-act-titulo">${e.titulo || '–'}</span>
-          ${e.detalle ? `<span class="dash-act-detalle">${e.detalle}</span>` : ''}
+          <span class="dash-act-titulo">${escapeHtml(e.titulo || '–')}</span>
+          ${e.detalle ? `<span class="dash-act-detalle">${escapeHtml(e.detalle)}</span>` : ''}
         </div>
         <span class="dash-act-fecha">${fecha}</span>
       </div>`;

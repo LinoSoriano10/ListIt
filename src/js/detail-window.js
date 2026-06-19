@@ -99,7 +99,7 @@ async function cargar(id) {
 
   document.getElementById('dw').innerHTML = `
     <div class="dw-header">
-      <img class="dw-img" src="${getImageSrc(item.imagen)}" alt="" onerror="this.src='img/no-image.png'">
+      <img class="dw-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="" onerror="this.src='img/no-image.png'">
       <div class="dw-info">
         <div class="dw-titulo">${escapeHtml(item.titulo)}</div>
         <div class="dw-meta-line">${meta}</div>

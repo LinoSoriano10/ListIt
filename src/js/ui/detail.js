@@ -246,7 +246,7 @@ export async function mostrarDetalle(id) {
 
   inner.innerHTML = `
     <div class="dh-hero">
-      <img class="dh-img" src="${getImageSrc(item.imagen)}" alt="${escapeHtml(item.titulo)}"
+      <img class="dh-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="${escapeHtml(item.titulo)}"
            onerror="this.src='img/no-image.png'">
       <div class="dh-grad"></div>
       <div class="dh-overlay">
@@ -284,7 +284,7 @@ export async function mostrarDetalle(id) {
         </div>
       ` : ''}
 
-      <div class="dh-desc">${item.descripcion || '<em style="opacity:.4">Sin descripción</em>'}</div>
+      <div class="dh-desc">${item.descripcion ? escapeHtml(item.descripcion) : '<em style="opacity:.4">Sin descripción</em>'}</div>
     </div>
 
     <div class="dh-foot">

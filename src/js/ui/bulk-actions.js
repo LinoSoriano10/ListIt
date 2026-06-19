@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { toast } from '../lib/toast.js';
 import { pushUndo, snapshotEntrada, restaurarEntrada } from '../lib/undo.js';
+import { escapeHtml } from '../lib/escape.js';
 
 let onChange = null;  // callback inyectado por main.js para recargar UI
 
@@ -102,7 +103,7 @@ export function inicializarBulk(reloadFn) {
 export function refrescarTagsBulk() {
   const sel = document.getElementById('bulkTagSelect');
   sel.innerHTML = '<option value="">Añadir etiqueta…</option>' +
-    state.tagsDisponibles.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+    state.tagsDisponibles.map(t => `<option value="${t.id}">${escapeHtml(t.nombre)}</option>`).join('');
 }
 
 export function entrarSeleccion(idInicial) {

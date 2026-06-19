@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
+import { escapeHtml } from '../lib/escape.js';
 
 const BUILTIN = ['anime', 'serie', 'pelicula'];
 
@@ -18,7 +19,7 @@ async function refrescarLista() {
 
   lista.innerHTML = tags.map(t => `
     <div class="tm-row" data-id="${t.id}">
-      <span class="tm-nombre" data-id="${t.id}">${t.nombre}</span>
+      <span class="tm-nombre" data-id="${t.id}">${escapeHtml(t.nombre)}</span>
       <span class="tm-count" title="${t.n} entradas">${t.n}</span>
       <div class="tm-actions">
         <button class="tm-btn tm-btn-rename" data-id="${t.id}" title="Renombrar">✏</button>

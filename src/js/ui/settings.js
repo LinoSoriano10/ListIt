@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { cargarContenido } from './content.js';
+import { escapeHtml } from '../lib/escape.js';
 
 export function aplicarTema(tema) {
   if (tema === 'light') document.documentElement.setAttribute('data-theme', 'light');
@@ -28,7 +29,7 @@ async function cargarSettings() {
   tagSel.innerHTML =
     `<option value="">— Sin defecto —</option>` +
     tags.map(t =>
-      `<option value="${t.nombre}"${t.nombre === tagDefecto ? ' selected' : ''}>${t.nombre}</option>`
+      `<option value="${escapeHtml(t.nombre)}"${t.nombre === tagDefecto ? ' selected' : ''}>${escapeHtml(t.nombre)}</option>`
     ).join('');
 
   document.getElementById('settingOrdenDefecto').value = ordenDefecto || 'reciente';

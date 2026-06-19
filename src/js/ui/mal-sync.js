@@ -4,6 +4,7 @@
 
 import { api } from '../api.js';
 import { toast } from '../lib/toast.js';
+import { escapeHtml } from '../lib/escape.js';
 
 const JIKAN_DELAY_MS = 400; // Jikan permite ~60 req/min con burst de 3
 let cancelado = false;
@@ -160,11 +161,4 @@ function mostrarResultado(r, cancelled) {
     // Notificar al main que recargue
     if (window.__onMalSyncDone) await window.__onMalSyncDone();
   };
-}
-
-// Helper local (escape, no necesita import full lib).
-function escapeHtml(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

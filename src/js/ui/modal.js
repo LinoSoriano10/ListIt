@@ -53,7 +53,7 @@ export function renderNombresModal() {
   state.nombresModal.forEach((nombre, i) => {
     const chip = document.createElement('span');
     chip.className = 'nombre-chip';
-    chip.innerHTML = `${nombre}<button class="nombre-chip-del" data-i="${i}" title="Eliminar">×</button>`;
+    chip.innerHTML = `${escapeHtml(nombre)}<button class="nombre-chip-del" data-i="${i}" title="Eliminar">×</button>`;
     chip.querySelector('.nombre-chip-del').addEventListener('click', () => {
       state.nombresModal.splice(i, 1);
       renderNombresModal();
