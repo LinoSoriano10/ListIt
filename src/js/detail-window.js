@@ -1,7 +1,7 @@
 // Ventana secundaria de detalle expandido (C.3).
 // Solo lectura. Se comunica con el main process via window.api/events.
 
-import { getImageSrc } from './lib/image.js';
+import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
 import { escapeHtml }  from './lib/escape.js';
 import { STATUS_COLOR, STATUS_LABEL } from './lib/colors.js';
 import { actualizarEntradaDesdeMal }  from './lib/mal.js';
@@ -10,6 +10,9 @@ const api    = window.api;
 const events = window.events;
 
 let currentId = null;
+
+// Fallback de imágenes rotas sin handlers inline (compatible con la CSP estricta).
+instalarFallbackImagenes();
 
 async function cargar(id) {
   currentId = id;
@@ -99,7 +102,7 @@ async function cargar(id) {
 
   document.getElementById('dw').innerHTML = `
     <div class="dw-header">
-      <img class="dw-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="" onerror="this.src='img/no-image.png'">
+      <img class="dw-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="">
       <div class="dw-info">
         <div class="dw-titulo">${escapeHtml(item.titulo)}</div>
         <div class="dw-meta-line">${meta}</div>

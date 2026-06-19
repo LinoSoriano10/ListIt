@@ -65,7 +65,7 @@ export async function buscarEnMAL(query, onSelect) {
         .filter(Boolean).join(' · ');
       el.innerHTML = `
         <span class="mal-checkbox-icon"></span>
-        <img class="mal-result-img" src="${escapeHtml(imgSrc)}" alt="" onerror="this.style.display='none'">
+        <img class="mal-result-img" src="${escapeHtml(imgSrc)}" alt="">
         <div class="mal-result-info">
           <div class="mal-result-title">${escapeHtml(anime.title || '')}</div>
           <div class="mal-result-meta">${escapeHtml(meta)}</div>

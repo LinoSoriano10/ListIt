@@ -246,8 +246,7 @@ export async function mostrarDetalle(id) {
 
   inner.innerHTML = `
     <div class="dh-hero">
-      <img class="dh-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="${escapeHtml(item.titulo)}"
-           onerror="this.src='img/no-image.png'">
+      <img class="dh-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="${escapeHtml(item.titulo)}">
       <div class="dh-grad"></div>
       <div class="dh-overlay">
         <div class="dh-chips">${(item.tags || []).map(t =>

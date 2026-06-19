@@ -68,7 +68,7 @@ export function renderGrid(items) {
       <span class="card-checkbox" title="Seleccionar">✓</span>
       <div class="card-img-wrap">
         <img class="card-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="${escapeHtml(item.titulo)}"
-             loading="lazy" onerror="this.src='img/no-image.png'">
+             loading="lazy">
         <div class="card-grad">
           <div class="card-title">${escapeHtml(item.titulo)}</div>
           <div class="card-sub">

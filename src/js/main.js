@@ -19,7 +19,7 @@ import {
   descargarPlantilla,
 } from './ui/import.js';
 import { buscarEnMAL, aplicarDatosMAL } from './lib/mal.js';
-import { getImageSrc } from './lib/image.js';
+import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
 import { cargarDashboard } from './ui/dashboard.js';
 import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
 import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema } from './ui/settings.js';
@@ -29,6 +29,9 @@ import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
 import { deshacer } from './lib/undo.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Fallback de imágenes rotas sin handlers inline (compatible con la CSP estricta).
+instalarFallbackImagenes();
 
 // ─── Filtros del sidebar ──────────────────────────────────
 document.querySelectorAll('.filter-btn[data-estado]').forEach(btn => {

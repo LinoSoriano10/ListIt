@@ -231,8 +231,7 @@ function renderViendo(items) {
 
     return `
       <div class="dash-viendo-item">
-        <img class="dash-viendo-img" src="${escapeHtml(getImageSrc(c.imagen))}"
-             onerror="this.src='img/no-image.png'" alt="">
+        <img class="dash-viendo-img" src="${escapeHtml(getImageSrc(c.imagen))}" alt="">
         <div class="dash-viendo-info">
           <div class="dash-viendo-titulo">${escapeHtml(c.titulo)}</div>
           ${textoProgreso ? `
