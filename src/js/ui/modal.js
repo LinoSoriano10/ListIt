@@ -170,6 +170,13 @@ export async function guardarDesdeModal() {
   await api.setTagsContenido(contenidoId, [...state.tagsModal]);
   await api.setNombres(contenidoId, state.nombresModal);
 
+  // Si en esta edición se han vinculado datos de MyAnimeList a una entrada ya
+  // existente, persistir los campos MAL aparte. actualizarContenido no los toca
+  // a propósito, para que las operaciones de progreso/estado no los pisen.
+  if (state.modoModal === 'editar' && state.malDataImportado) {
+    await api.vincularDatosMal(contenidoId, item);
+  }
+
   // Crear entregas de temporadas MAL si se seleccionaron varias
   if (state.malEntregasPendientes.length > 0) {
     for (const entrega of state.malEntregasPendientes) {

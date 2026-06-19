@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('obtener-actividad-entrada', { id, limite }),
   actualizarDesdeMal: (id, mal) =>
     ipcRenderer.invoke('actualizar-desde-mal', { id, mal }),
+  vincularDatosMal: (id, datos) =>
+    ipcRenderer.invoke('vincular-datos-mal', { id, datos }),
 
   // A.7 Sincronización masiva MAL
   obtenerEntradasConMalId: () => ipcRenderer.invoke('obtener-entradas-con-mal-id'),

@@ -124,6 +124,11 @@ ipcMain.handle('actualizar-contenido', (_, item) => {
   return result;
 });
 
+// Vincular datos MAL a una entrada existente (campos MAL aparte del update normal).
+ipcMain.handle('vincular-datos-mal', (_, { id, datos }) => {
+  return db.vincularDatosMal(id, datos);
+});
+
 ipcMain.handle('eliminar-contenido', (_, id) => {
   return db.eliminarContenido(id);
 });

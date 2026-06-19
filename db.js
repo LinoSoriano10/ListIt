@@ -283,6 +283,41 @@ function actualizarContenido(item) {
   `).run({ ...item, tipo: item.tipo || 'anime' });
 }
 
+/**
+ * Persiste SOLO los campos MAL de una entrada existente.
+ * Lo usa el modal de edición cuando se vincula MyAnimeList a una entrada ya
+ * creada (el alta los guarda en `guardarContenido`). A propósito está separado de
+ * `actualizarContenido`: así las operaciones de progreso/estado, que llaman a
+ * `actualizarContenido` con datos potencialmente cacheados, nunca pisan estos campos.
+ * @param {number} id
+ * @param {object} datos objeto con los campos MAL (p. ej. el item del modal)
+ */
+function vincularDatosMal(id, datos = {}) {
+  return db.prepare(`
+    UPDATE contenido SET
+      mal_id            = @mal_id,
+      score_mal         = @score_mal,
+      mal_rank          = @mal_rank,
+      fecha_estreno     = @fecha_estreno,
+      fecha_fin_emision = @fecha_fin_emision,
+      estado_emision    = @estado_emision,
+      estudio           = @estudio,
+      duracion_ep       = @duracion_ep,
+      updated_at        = datetime('now','localtime')
+    WHERE id = @id
+  `).run({
+    id,
+    mal_id:            datos.mal_id            ?? null,
+    score_mal:         datos.score_mal         ?? null,
+    mal_rank:          datos.mal_rank          ?? null,
+    fecha_estreno:     datos.fecha_estreno     ?? '',
+    fecha_fin_emision: datos.fecha_fin_emision ?? '',
+    estado_emision:    datos.estado_emision    ?? '',
+    estudio:           datos.estudio           ?? '',
+    duracion_ep:       datos.duracion_ep       ?? '',
+  });
+}
+
 function eliminarContenido(id) {
   return db.prepare('DELETE FROM contenido WHERE id = ?').run(id);
 }
@@ -714,6 +749,7 @@ module.exports = {
   obtenerPorId,
   guardarContenido,
   actualizarContenido,
+  vincularDatosMal,
   eliminarContenido,
   contarPorEstado,
   obtenerTags,
