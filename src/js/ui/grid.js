@@ -10,8 +10,8 @@ import { mostrarDetalle } from './detail.js';
 function calcularProgreso(item) {
   const tieneEntregas  = (item.total_entregas || 0) > 0;
   const tags           = item.tags || [];
-  const soloEsPelicula = tags.length === 1 && tags[0] === 'pelicula';
-  const tieneEpisodios = !soloEsPelicula && !tieneEntregas;
+  const esPelicula     = tags.includes('pelicula');
+  const tieneEpisodios = !esPelicula && !tieneEntregas;
 
   if (tieneEntregas) {
     const enCurso = (item.entrega_en_curso_id || 0) > 0;
@@ -60,8 +60,8 @@ export function renderGrid(items) {
 
     const tieneEntregas       = (item.total_entregas || 0) > 0;
     const tags                = item.tags || [];
-    const soloEsPelicula      = tags.length === 1 && tags[0] === 'pelicula';
-    const tieneEpisodios      = !soloEsPelicula && !tieneEntregas;
+    const esPelicula          = tags.includes('pelicula');
+    const tieneEpisodios      = !esPelicula && !tieneEntregas;
     const tieneEntregaEnCurso = tieneEntregas && (item.entrega_en_curso_id || 0) > 0;
 
     card.innerHTML = `

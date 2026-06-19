@@ -235,8 +235,8 @@ export async function mostrarDetalle(id) {
   panel.classList.add('open');
 
   const tags = item.tags || [];
-  const soloEsPelicula = tags.length === 1 && tags[0] === 'pelicula';
-  const tieneEpisodios = !soloEsPelicula;
+  const esPelicula     = tags.includes('pelicula');
+  const tieneEpisodios = !esPelicula;
   const color   = STATUS_COLOR[item.estado];
   const epActual = item.episodio_actual || 0;
   const epTotal  = item.episodios_totales || 0;
@@ -295,8 +295,8 @@ export async function mostrarDetalle(id) {
   `;
 
   const itemTags = item.tags || [];
-  const soloEsPeliculaEntregas = itemTags.length === 1 && itemTags[0] === 'pelicula';
-  await cargarEntregas(id, document.getElementById('dhEntregas'), soloEsPeliculaEntregas ? 'pelicula' : 'serie');
+  const esPeliculaEntregas = itemTags.includes('pelicula');
+  await cargarEntregas(id, document.getElementById('dhEntregas'), esPeliculaEntregas ? 'pelicula' : 'serie');
 
   inner.querySelectorAll('.tag-chip').forEach(chip => {
     chip.addEventListener('click', () => {
