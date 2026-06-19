@@ -719,7 +719,23 @@ function importarEntradaCompleta({ contenido, entregas, tipo }) {
       const tag = db.prepare('SELECT id FROM tags WHERE nombre = ?').get(tipo);
       if (tag) setTagsContenido(newId, [tag.id]);
     }
-    for (const e of entregas) guardarEntregaCompleta({ contenido_id: newId, ...e });
+    if (entregas.length > 0) {
+      for (const e of entregas) guardarEntregaCompleta({ contenido_id: newId, ...e });
+    } else if (tipo !== 'pelicula') {
+      // Modelo uniforme: una serie sin <entregas> en el XML nace con su temporada 1,
+      // heredando el progreso del nivel de entrada (igual que el alta manual y la migración).
+      const epA = contenido.episodio_actual  || 0;
+      const epT = contenido.episodios_totales || 0;
+      guardarEntregaCompleta({
+        contenido_id:      newId,
+        numero:            '1',
+        titulo:            '',
+        visto:             (contenido.estado === 'completado' || (epT > 0 && epA >= epT)) ? 1 : 0,
+        episodio_actual:   epA,
+        episodios_totales: epT,
+        mal_id:            contenido.mal_id || null,
+      });
+    }
     return { newId };
   })();
 }

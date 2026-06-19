@@ -6,7 +6,7 @@ import { escapeHtml } from '../lib/escape.js';
 import { actualizarEntradaDesdeMal } from '../lib/mal.js';
 import { toast } from '../lib/toast.js';
 import { pushUndo, snapshotEntrada, restaurarEntrada } from '../lib/undo.js';
-import { refreshItemCache, marcarCardSeleccionada, actualizarProgresoCard } from './grid.js';
+import { marcarCardSeleccionada, actualizarProgresoCard } from './grid.js';
 import { actualizarContadores } from './contadores.js';
 import { actualizarTagFilterBar } from './tags.js';
 import { abrirModalEditar } from './modal.js';
@@ -284,9 +284,7 @@ export async function mostrarDetalle(id) {
   const esPelicula     = tags.includes('pelicula');
   const tieneEpisodios = !esPelicula;
   const color   = STATUS_COLOR[item.estado];
-  const epActual = item.episodio_actual || 0;
   const epTotal  = item.episodios_totales || 0;
-  const pct = epTotal > 0 ? Math.min(100, Math.round((epActual / epTotal) * 100)) : 0;
   const metaParts = [];
   if (tieneEpisodios && epTotal > 0) metaParts.push(`${epTotal} ep.`);
 
@@ -311,23 +309,6 @@ export async function mostrarDetalle(id) {
       <div class="dh-meta">${metaParts.join(' · ') || '&nbsp;'}</div>
 
       <div id="dhEntregas"></div>
-
-      ${tieneEpisodios ? `
-        <div id="dhEpGlobal" class="dh-ep">
-          <div class="dh-ep-header">
-            <span>Episodio actual</span>
-            <span class="dh-ep-frac">${epActual} / ${epTotal || '?'}</span>
-          </div>
-          <div class="dh-ep-bar">
-            <div class="dh-ep-fill" style="width:${pct}%"></div>
-          </div>
-          <div class="dh-ep-controls">
-            <button class="dh-ep-btn" id="btnEpMenos" ${epActual <= 0 ? 'disabled' : ''}>−</button>
-            <span class="dh-ep-num">Ep. ${epActual}${pct > 0 ? ` · ${pct}%` : ''}</span>
-            <button class="dh-ep-btn" id="btnEpMas" ${epTotal > 0 && epActual >= epTotal ? 'disabled' : ''}>+</button>
-          </div>
-        </div>
-      ` : ''}
 
       <div class="dh-desc">${item.descripcion ? escapeHtml(item.descripcion) : '<em style="opacity:.4">Sin descripción</em>'}</div>
     </div>
@@ -410,25 +391,6 @@ export async function mostrarDetalle(id) {
         btnMal.disabled = false;
         btnMal.textContent = '↻ MAL';
       }
-    };
-  }
-
-  if (tieneEpisodios) {
-    document.getElementById('btnEpMas').onclick = async () => {
-      const newEp = (item.episodio_actual || 0) + 1;
-      await api.actualizarContenido({ ...item, episodio_actual: newEp });
-      refreshItemCache(id, { episodio_actual: newEp });
-      mostrarDetalle(id);
-    };
-
-    document.getElementById('btnEpMenos').onclick = async () => {
-      if ((item.episodio_actual || 0) <= 0) return;
-      const newEp = item.episodio_actual - 1;
-      await api.actualizarContenido({ ...item, episodio_actual: newEp });
-      const idx = state.todosLosItems.findIndex(i => i.id === id);
-      if (idx !== -1) state.todosLosItems[idx].episodio_actual = newEp;
-      refreshItemCache(id, { episodio_actual: newEp });
-      mostrarDetalle(id);
     };
   }
 

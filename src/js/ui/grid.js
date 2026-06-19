@@ -8,10 +8,7 @@ import { mostrarDetalle } from './detail.js';
 // ── Helper de subtítulo ──────────────────────────────────────────────────────
 // Fuente única de verdad para el texto que aparece bajo el título en la card.
 function calcularProgreso(item) {
-  const tieneEntregas  = (item.total_entregas || 0) > 0;
-  const tags           = item.tags || [];
-  const esPelicula     = tags.includes('pelicula');
-  const tieneEpisodios = !esPelicula && !tieneEntregas;
+  const tieneEntregas = (item.total_entregas || 0) > 0;
 
   if (tieneEntregas) {
     // Temporada única → contador simple, sin prefijo de temporada (decisión 2).
@@ -35,9 +32,6 @@ function calcularProgreso(item) {
     return `${item.entregas_vistas}/${item.total_entregas} temporadas`;
   }
 
-  if (tieneEpisodios && (item.episodios_totales || 0) > 0) {
-    return `${item.episodio_actual}/${item.episodios_totales} ep.`;
-  }
   return '';
 }
 
@@ -67,9 +61,6 @@ export function renderGrid(items) {
     card.style.animationDelay = `${index * 28}ms`;
 
     const tieneEntregas       = (item.total_entregas || 0) > 0;
-    const tags                = item.tags || [];
-    const esPelicula          = tags.includes('pelicula');
-    const tieneEpisodios      = !esPelicula && !tieneEntregas;
     const tieneEntregaEnCurso = tieneEntregas && (item.entrega_en_curso_id || 0) > 0;
 
     card.innerHTML = `
@@ -101,16 +92,14 @@ export function renderGrid(items) {
       mostrarDetalle(item.id);
     });
 
-    const mostrarBotonEp = tieneEpisodios || tieneEntregaEnCurso;
+    const mostrarBotonEp = tieneEntregaEnCurso;
 
     if (mostrarBotonEp) {
       const footer = document.createElement('div');
       footer.className = 'card-footer';
       const epBtn = document.createElement('button');
       epBtn.className = 'card-ep-add';
-      epBtn.title = tieneEntregaEnCurso
-        ? 'Añadir episodio visto a la temporada en curso'
-        : 'Añadir episodio visto';
+      epBtn.title = 'Añadir episodio visto a la temporada en curso';
       epBtn.textContent = '+1 ep';
 
       epBtn.addEventListener('click', async (e) => {
@@ -148,16 +137,6 @@ export function renderGrid(items) {
           // Ocultar botón si ya no hay temporada en curso
           if (!siguiente) footer.remove();
 
-          if (state.idActual === item.id) mostrarDetalle(item.id);
-        } else {
-          // Episodio global (sin entregas)
-          const newEp = (item.episodio_actual || 0) + 1;
-          item.episodio_actual = newEp;
-          await api.actualizarContenido({ ...item });
-          const idx = state.todosLosItems.findIndex(i => i.id === item.id);
-          if (idx !== -1) state.todosLosItems[idx].episodio_actual = newEp;
-          const sub = card.querySelector('.card-sub span:last-child');
-          if (sub) sub.textContent = calcularProgreso(item);
           if (state.idActual === item.id) mostrarDetalle(item.id);
         }
       });
