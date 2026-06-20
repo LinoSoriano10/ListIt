@@ -15,7 +15,8 @@ const JIKAN_DELAY_MS = 400;
 const VENTANA_MS = 7 * 24 * 60 * 60 * 1000; // no recomprobar un anime más de una vez por semana
 let cancelado    = false;
 let scopeSerieId = null;
-let ignorados    = new Set();   // mal_id de temporadas que el usuario no quiere que se recomienden
+let ignorados    = new Map();   // mal_id -> título de las temporadas ignoradas (restaurables)
+let sequelMap    = {};          // caché de la cadena: mal_id -> mal_id de su secuela
 
 const delay = () => new Promise(r => setTimeout(r, JIKAN_DELAY_MS));
 
@@ -37,6 +38,18 @@ async function jikanRelations(malId) {
 
 async function jikanAnime(malId) {
   return (await jikanGet(`https://api.jikan.moe/v4/anime/${malId}`)) || null;
+}
+
+// Devuelve el mal_id de la secuela de `malId` (o null). Cachea solo los enlaces
+// positivos: un "sin secuela" no se guarda porque la punta puede recibir una nueva.
+async function sequelDe(malId) {
+  if (sequelMap[malId]) return sequelMap[malId];
+  const rels = await jikanRelations(malId);
+  await delay();
+  const seq  = rels.find(r => r.relation === 'Sequel');
+  const next = seq?.entry?.find(e => e.type === 'anime');
+  if (next) { sequelMap[malId] = next.mal_id; return next.mal_id; }
+  return null;
 }
 
 export async function abrirAddSeason(serieIdPreseleccionada = null) {
@@ -65,6 +78,12 @@ async function escanear(forzar = false) {
   document.getElementById('addSeasonResults').innerHTML = '';
   document.getElementById('btnAddSeasonRescan').style.display = 'none';
 
+  try {
+    const raw = JSON.parse((await api.getSetting('mal_ignorados')) || '[]');
+    ignorados = new Map(raw.map(x => Array.isArray(x) ? x : [x, '']));  // compat formato antiguo (solo ids)
+  } catch (_) { ignorados = new Map(); }
+  actualizarBotonIgnoradas();
+
   // Series candidatas: con mal_id y que no sean películas. Todas, o solo una.
   let items = (await api.getContenido({})).filter(i => i.mal_id && i.tipo !== 'pelicula');
   if (scopeSerieId) items = items.filter(i => i.id === scopeSerieId);
@@ -79,7 +98,7 @@ async function escanear(forzar = false) {
   // tarda meses o años). La última comprobación por serie vive en settings.
   let mapa = {};
   try { mapa = JSON.parse((await api.getSetting('mal_check_map')) || '{}'); } catch (_) { mapa = {}; }
-  try { ignorados = new Set(JSON.parse((await api.getSetting('mal_ignorados')) || '[]')); } catch (_) { ignorados = new Set(); }
+  try { sequelMap = JSON.parse((await api.getSetting('mal_sequel_map')) || '{}'); } catch (_) { sequelMap = {}; }
   const ahora       = Date.now();
   const sinThrottle = forzar || scopeSerieId;
   const aRevisar    = sinThrottle
@@ -107,40 +126,40 @@ async function escanear(forzar = false) {
     let error      = false;
     try {
       const entregas = await api.getEntregas(s.id);
-      const malIds   = new Set(entregas.map(e => e.mal_id).filter(Boolean));
-      if (s.mal_id) malIds.add(s.mal_id);
+      const owned    = new Set(entregas.map(e => e.mal_id).filter(Boolean));
 
-      // Punto de partida: la última temporada con mal_id (o el mal_id del contenido).
-      let head  = [...entregas].reverse().find(e => e.mal_id)?.mal_id || s.mal_id;
+      // Recorre TODA la cadena de la franquicia desde su raíz (mal_id del
+      // contenido = 1ª temporada) y ofrece cualquier temporada que no tengas y no
+      // hayas ignorado: así reaparecen las borradas, no solo las nuevas. Las que
+      // ya tienes se saltan pero se sigue la cadena (split-cours, huecos, etc.).
+      let cur   = s.mal_id;
       let depth = 0;
-      while (head && depth < 6) {
+      const visto = new Set();
+      while (cur && depth < 20 && !visto.has(cur)) {
+        visto.add(cur);
         if (cancelado) return;
-        const rels = await jikanRelations(head);
-        await delay();
-        const seq  = rels.find(r => r.relation === 'Sequel');
-        const next = seq?.entry?.find(e => e.type === 'anime');
-        if (!next) break;
-
-        // Salta (pero sigue la cadena) las que ya tienes o has ignorado: p. ej.
-        // los trozos/split-cours de una temporada larga que ya viste.
-        if (!malIds.has(next.mal_id) && !ignorados.has(next.mal_id)) {
-          const det = await jikanAnime(next.mal_id);
+        if (!owned.has(cur) && !ignorados.has(cur)) {
+          const det = await jikanAnime(cur);
           await delay();
           if (det) { candidatos.push({ serie: s, anime: det }); encontrado = true; }
         }
-        malIds.add(next.mal_id);
-        head = next.mal_id;
+        cur = await sequelDe(cur);
         depth++;
       }
     } catch (_) { error = true; }
 
-    // Solo se marca "comprobada" si terminó sin error y sin novedades: las series
-    // con una temporada pendiente se siguen revisando hasta que se añada.
-    if (!error && !encontrado) mapa[s.id] = new Date(ahora).toISOString();
+    // Tras revisar sin error: si hay temporadas pendientes se quita la marca para
+    // re-revisar siempre (hasta añadirlas/ignorarlas); si está limpia, se marca
+    // comprobada y no se vuelve a consultar en una semana.
+    if (!error) {
+      if (encontrado) delete mapa[s.id];
+      else mapa[s.id] = new Date(ahora).toISOString();
+    }
   }
 
   if (cancelado) return;
   await api.setSetting('mal_check_map', JSON.stringify(mapa));
+  await api.setSetting('mal_sequel_map', JSON.stringify(sequelMap));
 
   setProgress(null);
   document.getElementById('btnAddSeasonRescan').style.display = '';
@@ -183,9 +202,48 @@ function renderCandidatos(candidatos, omitidas = 0) {
   });
   results.querySelectorAll('button[data-act="ignorar"]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      ignorados.add(candidatos[parseInt(btn.dataset.idx)].anime.mal_id);
+      const c = candidatos[parseInt(btn.dataset.idx)];
+      // Acción consciente: confirmar para que un clic accidental no la condene.
+      if (!confirm(`¿Ignorar «${c.anime.title}»?\nDejará de recomendarse; puedes deshacerlo en «Ignoradas».`)) return;
+      ignorados.set(c.anime.mal_id, c.anime.title || '');
       await api.setSetting('mal_ignorados', JSON.stringify([...ignorados]));
+      actualizarBotonIgnoradas();
       btn.closest('.mal-result-item').remove();
+    });
+  });
+}
+
+function actualizarBotonIgnoradas() {
+  const btn = document.getElementById('btnVerIgnoradas');
+  if (!btn) return;
+  btn.textContent = `Ignoradas (${ignorados.size})`;
+  btn.style.display = ignorados.size > 0 ? '' : 'none';
+}
+
+// Lista de temporadas ignoradas con opción de restaurarlas (deshacer el ignorar).
+function mostrarIgnoradas() {
+  setProgress(null);
+  const results = document.getElementById('addSeasonResults');
+  document.getElementById('btnAddSeasonRescan').style.display = '';
+  if (ignorados.size === 0) {
+    setStatus('No tienes temporadas ignoradas.');
+    results.innerHTML = '';
+    return;
+  }
+  setStatus(`Temporadas ignoradas (${ignorados.size}) — restaura las que quieras:`);
+  results.innerHTML = [...ignorados.entries()].map(([mid, titulo]) => `
+    <div class="mal-result-item">
+      <div class="mal-result-info">
+        <div class="mal-result-title">${escapeHtml(titulo || `MyAnimeList #${mid}`)}</div>
+      </div>
+      <button class="btn-secondary" data-restaurar="${mid}" style="margin-left:auto">Restaurar</button>
+    </div>`).join('');
+  results.querySelectorAll('button[data-restaurar]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      ignorados.delete(parseInt(btn.dataset.restaurar));
+      await api.setSetting('mal_ignorados', JSON.stringify([...ignorados]));
+      actualizarBotonIgnoradas();
+      mostrarIgnoradas();
     });
   });
 }
@@ -213,4 +271,5 @@ async function anadirTemporada({ serie, anime }) {
 
 export function inicializarAddSeason() {
   document.getElementById('btnAddSeasonRescan').addEventListener('click', () => escanear(true));
+  document.getElementById('btnVerIgnoradas').addEventListener('click', mostrarIgnoradas);
 }
