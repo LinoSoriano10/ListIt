@@ -1,6 +1,6 @@
 export const state = {
   // Filtros y vista
-  filtroEstado:           'todos',
+  filtroEstado:           'viendo',
   filtroOrden:            'reciente',  // 'reciente'|'alfabetico'|'anio'|'completado'
   filtroTag:              null,
   idActual:               null,
@@ -9,6 +9,7 @@ export const state = {
 
   // Modal de entrada
   modoModal:              'nuevo',
+  tipoModal:              'anime',     // D1: tipo elegido en el modal (anime|serie|pelicula)
   tagsModal:              new Set(),
   tagsDisponibles:        [],
   todosLosItems:          [],
@@ -16,7 +17,6 @@ export const state = {
   malDataImportado:       null,
   malEntregasPendientes:  [],
   itemEditando:           null,
-  xmlParseado:            [],
 
   // A.6 Multi-selección
   seleccionMultiple:      new Set(),

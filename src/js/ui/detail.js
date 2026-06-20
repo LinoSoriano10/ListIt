@@ -281,8 +281,7 @@ export async function mostrarDetalle(id) {
   const inner = document.getElementById('detailInner');
   panel.classList.add('open');
 
-  const tags = item.tags || [];
-  const esPelicula     = tags.includes('pelicula');
+  const esPelicula     = item.tipo === 'pelicula';
   const tieneEpisodios = !esPelicula;
   const color   = STATUS_COLOR[item.estado];
   const epTotal  = item.episodios_totales || 0;
@@ -326,9 +325,7 @@ export async function mostrarDetalle(id) {
     </div>
   `;
 
-  const itemTags = item.tags || [];
-  const esPeliculaEntregas = itemTags.includes('pelicula');
-  await cargarEntregas(id, document.getElementById('dhEntregas'), esPeliculaEntregas ? 'pelicula' : 'serie');
+  await cargarEntregas(id, document.getElementById('dhEntregas'), item.tipo === 'pelicula' ? 'pelicula' : 'serie');
 
   inner.querySelectorAll('.tag-chip').forEach(chip => {
     chip.addEventListener('click', () => {

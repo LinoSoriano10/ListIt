@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const https = require('https');
 const { hacerBackupDiario, exportarBd } = require('./lib/backup');
 const log  = require('./lib/logger');
 const db   = require('./db');

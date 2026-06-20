@@ -126,12 +126,12 @@
       </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Estado</div>
-        <button class="filter-btn active" data-estado="todos">
+        <button class="filter-btn" data-estado="todos">
           <span class="sdot" style="background:var(--accent2)"></span>
           Todos
           <span class="badge" id="badge-todos">0</span>
         </button>
-        <button class="filter-btn" data-estado="viendo">
+        <button class="filter-btn active" data-estado="viendo">
           <span class="sdot" style="background:var(--viendo)"></span>
           Viendo
           <span class="badge" id="badge-viendo">0</span>
@@ -274,6 +274,15 @@
             <option value="completado">Completado</option>
             <option value="en_pausa">En Pausa</option>
             <option value="abandonado">Abandonado</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="modalTipo">
+            <option value="anime">Anime</option>
+            <option value="serie">Serie</option>
+            <option value="pelicula">Película</option>
           </select>
         </div>
 

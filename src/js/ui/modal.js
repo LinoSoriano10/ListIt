@@ -6,6 +6,8 @@ import { renderTagsModal } from './tags.js';
 import { cargarContenido } from './content.js';
 import { mostrarDetalle } from './detail.js';
 
+const TIPOS_TAG = ['anime', 'serie', 'pelicula'];
+
 // ── A.4 Detección de duplicados ──────────────────────────────────────────────
 let dupTimer = null;
 async function comprobarDuplicados() {
@@ -74,19 +76,25 @@ export function agregarNombre() {
 export async function abrirModalNuevo() {
   state.modoModal             = 'nuevo';
   state.tagsModal             = new Set();
+  state.tipoModal             = 'anime';
   state.nombresModal          = [];
   state.malDataImportado      = null;
   state.malEntregasPendientes = [];
   state.itemEditando          = null;
 
-  // Pre-seleccionar tag por defecto
+  // Pre-seleccionar tipo o etiqueta por defecto
   const tagDefecto = await api.getSetting('tag_defecto');
   if (tagDefecto) {
-    const tag = state.tagsDisponibles.find(t => t.nombre === tagDefecto);
-    if (tag) state.tagsModal.add(tag.id);
+    if (TIPOS_TAG.includes(tagDefecto)) {
+      state.tipoModal = tagDefecto;
+    } else {
+      const tag = state.tagsDisponibles.find(t => t.nombre === tagDefecto);
+      if (tag) state.tagsModal.add(tag.id);
+    }
   }
 
   document.getElementById('modalTitulo').value      = '';
+  document.getElementById('modalTipo').value        = state.tipoModal;
   document.getElementById('modalEstado').value      = 'pendiente';
   document.getElementById('modalDescripcion').value = '';
   document.getElementById('modalImagen').value      = '';
@@ -113,8 +121,11 @@ export async function abrirModalEditar(item) {
   document.getElementById('malInput').value         = '';
   document.getElementById('malResults').innerHTML   = '';
 
+  state.tipoModal = TIPOS_TAG.includes(item.tipo) ? item.tipo : 'anime';
+  document.getElementById('modalTipo').value = state.tipoModal;
+
   const tagsDelItem = await api.getTagsContenido(item.id);
-  state.tagsModal    = new Set(tagsDelItem.map(t => t.id));
+  state.tagsModal    = new Set(tagsDelItem.filter(t => !TIPOS_TAG.includes(t.nombre)).map(t => t.id));
   state.nombresModal = await api.getNombres(item.id);
   renderTagsModal();
   renderNombresModal();
@@ -128,14 +139,14 @@ export async function guardarDesdeModal() {
     return;
   }
 
-  const primerTag = state.tagsDisponibles.find(t => state.tagsModal.has(t.id));
-  const tipoLegacy = primerTag ? primerTag.nombre : 'anime';
+  const tipoSel = document.getElementById('modalTipo').value;
+  state.tipoModal = tipoSel;
 
   const esEdicion = state.modoModal === 'editar' && state.itemEditando;
   const mal = state.malDataImportado || {};
   const item = {
     titulo,
-    tipo:              tipoLegacy,
+    tipo:              tipoSel,
     estado:            document.getElementById('modalEstado').value,
     episodio_actual:   esEdicion ? (state.itemEditando.episodio_actual || 0) : 0,
     episodios_totales: mal.episodios_totales != null
@@ -167,7 +178,10 @@ export async function guardarDesdeModal() {
     await api.actualizarContenido({ id: state.idActual, ...item });
     contenidoId = state.idActual;
   }
-  await api.setTagsContenido(contenidoId, [...state.tagsModal]);
+  // El tag de tipo se guarda junto a las etiquetas libres, en sincronía con `tipo`.
+  const idTagTipo = state.tagsDisponibles.find(t => t.nombre === tipoSel)?.id;
+  const tagsAGuardar = idTagTipo ? [...state.tagsModal, idTagTipo] : [...state.tagsModal];
+  await api.setTagsContenido(contenidoId, tagsAGuardar);
   await api.setNombres(contenidoId, state.nombresModal);
 
   // Si en esta edición se han vinculado datos de MyAnimeList a una entrada ya
@@ -186,8 +200,7 @@ export async function guardarDesdeModal() {
   } else if (state.modoModal === 'nuevo') {
     // Modelo uniforme: toda serie nueva nace con al menos una temporada. Las
     // películas se excluyen (no llevan temporadas). Hereda el progreso del formulario.
-    const esPelicula = state.tagsDisponibles.some(t => state.tagsModal.has(t.id) && t.nombre === 'pelicula');
-    if (!esPelicula) {
+    if (tipoSel !== 'pelicula') {
       await api.guardarEntregaCompleta({
         contenido_id:      contenidoId,
         numero:            '1',

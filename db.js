@@ -503,16 +503,15 @@ function estadisticasGenerales() {
       COALESCE((SELECT SUM(e.episodios_totales) FROM entregas e WHERE e.contenido_id = c.id), 0) AS ep_entregas,
       COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id), 0) AS total_entregas,
       COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id), 0) AS entregas_vistas,
-      (SELECT t.nombre FROM tags t JOIN contenido_tags ct ON ct.tag_id = t.id
-       WHERE ct.contenido_id = c.id ORDER BY t.nombre LIMIT 1) AS tag_principal
+      c.tipo
     FROM contenido c
   `).all();
 
   let minutos = 0;
   for (const c of items) {
     const eps = c.ep_entregas > 0 ? c.ep_entregas : (c.episodios_totales || 0);
-    if (c.tag_principal === 'pelicula') minutos += (eps > 0 ? eps : 1) * 110;
-    else if (c.tag_principal === 'serie') minutos += eps * 45;
+    if (c.tipo === 'pelicula') minutos += (eps > 0 ? eps : 1) * 110;
+    else if (c.tipo === 'serie') minutos += eps * 45;
     else minutos += eps * 24;
   }
 
@@ -769,6 +768,28 @@ for (const [k, v] of [['tag_defecto', ''], ['orden_defecto', 'reciente'], ['them
         insert.run(c.id, visto, epA, epT, c.mal_id || null);
       }
     })();
+  }
+}
+
+// D1: alinear contenido.tipo con su tag de tipo una sola vez. A partir de aquí el
+// tipo es un campo propio; el modal mantiene el tag de tipo en sincronía con él.
+{
+  const hecho = db.prepare("SELECT value FROM settings WHERE key = 'd1_tipo_sync'").get();
+  if (!hecho) {
+    const tipoDe = db.prepare(`
+      SELECT t.nombre FROM contenido_tags ct JOIN tags t ON t.id = ct.tag_id
+      WHERE ct.contenido_id = ? AND t.nombre IN ('anime', 'serie', 'pelicula')
+      ORDER BY CASE t.nombre WHEN 'pelicula' THEN 0 WHEN 'serie' THEN 1 ELSE 2 END
+      LIMIT 1
+    `);
+    const upd = db.prepare('UPDATE contenido SET tipo = ? WHERE id = ?');
+    db.transaction(() => {
+      for (const c of db.prepare('SELECT id FROM contenido').all()) {
+        const row = tipoDe.get(c.id);
+        if (row) upd.run(row.nombre, c.id);
+      }
+    })();
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('d1_tipo_sync', '1')").run();
   }
 }
 

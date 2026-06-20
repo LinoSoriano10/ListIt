@@ -19,7 +19,7 @@ export async function abrirAddSeason(serieIdPreseleccionada = null) {
 
   // Poblar el selector de series (se excluyen las películas: no llevan temporadas).
   const items  = await api.getContenido({});
-  const series = items.filter(i => !(i.tags || []).includes('pelicula'));
+  const series = items.filter(i => i.tipo !== 'pelicula');
   const sel    = document.getElementById('addSeasonSerie');
   sel.innerHTML = series.length
     ? series.map(s => `<option value="${s.id}">${escapeHtml(s.titulo)}</option>`).join('')

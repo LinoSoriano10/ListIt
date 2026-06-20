@@ -295,7 +295,6 @@ const TIPO_ICON = {
   creado:          '✚',
   estado_cambio:   '↔',
   entrega_marcada: '✓',
-  ep_visto:        '+',
 };
 
 function renderActividadReciente(eventos) {

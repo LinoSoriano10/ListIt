@@ -48,6 +48,19 @@ export function renderGrid(items) {
 
   if (items.length === 0) {
     empty.style.display = 'flex';
+    const p        = empty.querySelector('p');
+    const small    = empty.querySelector('small');
+    const buscando = (document.getElementById('searchBar')?.value || '').trim();
+    if (state.filtroEstado === 'viendo' && !state.filtroTag && !buscando) {
+      p.textContent     = 'No estás viendo nada ahora mismo';
+      small.textContent = 'Marca una serie como «Viendo», o pulsa «Todos» para ver tu lista';
+    } else if (state.filtroEstado !== 'todos' || state.filtroTag || buscando) {
+      p.textContent     = 'Sin resultados';
+      small.textContent = 'Prueba a cambiar el filtro o la búsqueda';
+    } else {
+      p.textContent     = 'Tu lista está vacía';
+      small.textContent = 'Pulsa "Añadir" para empezar';
+    }
     return;
   }
   empty.style.display = 'none';
@@ -153,12 +166,6 @@ export function marcarCardSeleccionada(id) {
   document.querySelectorAll('#grid .card').forEach(card => {
     card.classList.toggle('selected', parseInt(card.dataset.id) === id);
   });
-}
-
-export function refreshItemCache(id, updates) {
-  const idx = state.todosLosItems.findIndex(i => i.id === id);
-  if (idx !== -1) Object.assign(state.todosLosItems[idx], updates);
-  actualizarProgresoCard(id);
 }
 
 export function actualizarProgresoCard(id) {
