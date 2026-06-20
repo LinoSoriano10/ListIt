@@ -316,7 +316,6 @@ export async function mostrarDetalle(id) {
 
     <div class="dh-foot">
       <button class="dh-btn-edit" id="btnEditarDetalle">✏ Editar</button>
-      <button class="dh-btn-expand" id="btnExpandirDetalle" title="Abrir vista ampliada">⤢</button>
       ${!esPelicula ? `<button class="dh-btn-expand" id="btnAddTempDetalle" title="Añadir temporada desde MAL">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:middle">
           <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
@@ -369,11 +368,6 @@ export async function mostrarDetalle(id) {
       } },
     });
     await cargarContenido();
-  };
-
-  // ── C.3 Expandir vista ──
-  document.getElementById('btnExpandirDetalle').onclick = () => {
-    api.abrirDetalleExpandido(id);
   };
 
   const btnAddTemp = document.getElementById('btnAddTempDetalle');

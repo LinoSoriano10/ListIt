@@ -206,6 +206,35 @@ $('modalAddSeason').addEventListener('click', e => {
 });
 inicializarAddSeason();
 
+// ─── Panel de detalle redimensionable (B5) ─────────────────
+(() => {
+  const panel   = $('detailPanel');
+  const resizer = $('detailResizer');
+  const root    = document.documentElement;
+  resizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = panel.offsetWidth;
+    panel.style.transition = 'none';
+    document.body.style.userSelect = 'none';
+    const onMove = (ev) => {
+      // Arrastrar hacia la izquierda ensancha el panel (está a la derecha).
+      const ancho = Math.min(600, Math.max(280, startW + (startX - ev.clientX)));
+      root.style.setProperty('--detail-w', ancho + 'px');
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      panel.style.transition = '';
+      document.body.style.userSelect = '';
+      const ancho = parseInt(root.style.getPropertyValue('--detail-w')) || 350;
+      api.setSetting('detail_width', String(ancho));
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
 // ─── Tags Manager ──────────────────────────────────────────
 $('btnTagsManager').addEventListener('click', abrirTagsManager);
 $('btnCerrarTagsManager').addEventListener('click', cerrarTagsManager);
@@ -265,6 +294,10 @@ $('btnExportBd').addEventListener('click', () => api.exportarBd());
     state.cardSize = cardSize;
     $('selectCardSize').value = cardSize;
   }
+
+  // B5 Aplicar ancho guardado del panel de detalle
+  const detailW = await api.getSetting('detail_width');
+  if (detailW) document.documentElement.style.setProperty('--detail-w', detailW + 'px');
 
   // A.4 Inicializar detección de duplicados en el modal
   inicializarDuplicados();

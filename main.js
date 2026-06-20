@@ -18,7 +18,6 @@ app.commandLine.appendSwitch('js-flags', '--optimize-for-size');
 app.commandLine.appendSwitch('disable-features', 'TranslateUI,AutofillServerCommunication,MediaRouter');
 
 let mainWin       = null;
-let detailWindow  = null;
 
 function createWindow() {
   mainWin = new BrowserWindow({
@@ -35,35 +34,6 @@ function createWindow() {
     },
   });
   mainWin.loadFile('src/index.html');
-}
-
-/** Abre o reemplaza la ventana de detalle expandido (C.3). */
-function abrirDetalleWindow(contenidoId) {
-  if (detailWindow && !detailWindow.isDestroyed()) {
-    detailWindow.webContents.send('detalle-cargar', contenidoId);
-    detailWindow.focus();
-    return;
-  }
-  detailWindow = new BrowserWindow({
-    width: 720,
-    height: 700,
-    parent: mainWin,
-    minWidth: 600,
-    minHeight: 500,
-    title: 'ListIt — Detalle',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      spellcheck: false,
-    },
-  });
-  detailWindow.removeMenu();
-  detailWindow.loadFile('src/detail-window.html');
-  detailWindow.webContents.once('did-finish-load', () => {
-    detailWindow.webContents.send('detalle-cargar', contenidoId);
-  });
-  detailWindow.on('closed', () => { detailWindow = null; });
 }
 
 // Endurecimiento de navegación (buenas prácticas de seguridad de Electron):
@@ -269,18 +239,7 @@ ipcMain.handle('reordenar-entregas', (_, { contenidoId, idsOrdenados }) => {
   return db.reordenarEntregas(contenidoId, idsOrdenados);
 });
 
-// ── C.3 Ventana de detalle expandido ──────────────────────────────────────────
-
-ipcMain.handle('abrir-detalle-expandido', (_, contenidoId) => {
-  abrirDetalleWindow(contenidoId);
-  return true;
-});
-
-ipcMain.handle('obtener-actividad-entrada', (_, { id, limite }) => {
-  return db.obtenerActividadDeEntrada(id, limite || 20);
-});
-
-// ── C.3 / A.7 Actualización desde MAL ─────────────────────────────────────────
+// ── A.7 Actualización desde MAL ───────────────────────────────────────────────
 // El renderer hace el fetch a Jikan y pasa el JSON resultante.
 
 ipcMain.handle('actualizar-desde-mal', (event, { id, mal }) => {
@@ -288,14 +247,11 @@ ipcMain.handle('actualizar-desde-mal', (event, { id, mal }) => {
   if (resultado.cambios.length > 0) {
     db.registrarActividad(id, 'mal_sync', `Actualizado: ${resultado.cambios.join(', ')}`);
   }
-  // Refrescar las ventanas abiertas distintas de la que originó el cambio. La
-  // ventana que dispara la actualización ya se recarga sola, y la sincronización
-  // masiva corre en la principal y refresca al terminar, así evitamos recargar
-  // la principal una vez por entrada durante el bucle.
-  for (const win of [mainWin, detailWindow]) {
-    if (win && !win.isDestroyed() && win.webContents !== event.sender) {
-      win.webContents.send('detalle-refrescar', id);
-    }
+  // Refrescar la ventana principal si no fue ella quien originó el cambio (la
+  // sincronización masiva corre en la principal y refresca al terminar, así
+  // evitamos recargarla una vez por entrada durante el bucle).
+  if (mainWin && !mainWin.isDestroyed() && mainWin.webContents !== event.sender) {
+    mainWin.webContents.send('detalle-refrescar', id);
   }
   return resultado;
 });

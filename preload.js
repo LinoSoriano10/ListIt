@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Mensajes que envía el proceso principal a las ventanas (detail-window).
-const ALLOWED_EVENTS = ['detalle-cargar', 'detalle-refrescar'];
+// Mensajes que el proceso principal envía a la ventana principal (refrescos).
+const ALLOWED_EVENTS = ['detalle-refrescar'];
 contextBridge.exposeInMainWorld('events', {
   on: (canal, fn) => {
     if (!ALLOWED_EVENTS.includes(canal)) return;
@@ -65,10 +65,7 @@ contextBridge.exposeInMainWorld('api', {
   reordenarEntregas: (contenidoId, idsOrdenados) =>
     ipcRenderer.invoke('reordenar-entregas', { contenidoId, idsOrdenados }),
 
-  // C.3 Ventana detalle expandido + MAL update
-  abrirDetalleExpandido: (id) => ipcRenderer.invoke('abrir-detalle-expandido', id),
-  obtenerActividadEntrada: (id, limite) =>
-    ipcRenderer.invoke('obtener-actividad-entrada', { id, limite }),
+  // C.3 Actualización desde MAL
   actualizarDesdeMal: (id, mal) =>
     ipcRenderer.invoke('actualizar-desde-mal', { id, mal }),
   vincularDatosMal: (id, datos) =>

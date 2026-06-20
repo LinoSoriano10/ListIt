@@ -697,17 +697,6 @@ function obtenerEntradasConMalId() {
   `).all();
 }
 
-/**
- * Devuelve la actividad de una entrada concreta (para ventana expandida C.3).
- */
-function obtenerActividadDeEntrada(contenidoId, limite = 20) {
-  return db.prepare(`
-    SELECT * FROM actividad
-    WHERE contenido_id = ?
-    ORDER BY fecha DESC, id DESC LIMIT ?
-  `).all(contenidoId, limite);
-}
-
 // ── Actividad ─────────────────────────────────────────────────────────────────
 
 db.prepare(`
@@ -819,9 +808,7 @@ module.exports = {
   actualizarTag,
   contarPorTag,
   registrarActividad,
-  obtenerActividad,
-  obtenerActividadDeEntrada,
-  getSetting,
+  obtenerActividad,  getSetting,
   setSetting,
   obtenerNombres,
   setNombres,

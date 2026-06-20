@@ -138,12 +138,25 @@ main {
   background: var(--surface);
   border-left: 1px solid var(--border);
   overflow: hidden;
+  position: relative;
   transition: width 0.28s cubic-bezier(.25,.46,.45,.94);
 }
-#detailPanel.open { width: 350px; }
+#detailPanel.open { width: var(--detail-w, 350px); }
+
+.detail-resizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background 0.15s;
+}
+.detail-resizer:hover { background: var(--accent); }
 
 .detail-inner {
-  width: 350px;
+  width: var(--detail-w, 350px);
   height: 100%;
   overflow-y: auto;
   display: flex;
