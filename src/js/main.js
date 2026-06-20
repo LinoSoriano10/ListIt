@@ -200,7 +200,7 @@ $('modalAtajos').addEventListener('click', e => {
 // ─── Añadir temporada desde MAL (F2) ───────────────────────
 $('btnAddTemporada').addEventListener('click', () => abrirAddSeason());
 $('btnCerrarAddSeason').addEventListener('click', cerrarAddSeason);
-$('btnCancelarAddSeason').addEventListener('click', cerrarAddSeason);
+$('btnCerrarAddSeason2').addEventListener('click', cerrarAddSeason);
 $('modalAddSeason').addEventListener('click', e => {
   if (e.target === $('modalAddSeason')) cerrarAddSeason();
 });

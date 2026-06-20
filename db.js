@@ -793,6 +793,22 @@ for (const [k, v] of [['tag_defecto', ''], ['orden_defecto', 'reciente'], ['them
   }
 }
 
+// Rellena el título de la "temporada 1" autocreada cuando una entrada ya pasó a
+// multi-temporada y quedó sin título (se veía en blanco junto a las demás). Una vez.
+{
+  const hecho = db.prepare("SELECT value FROM settings WHERE key = 'backfill_t1_titulo'").get();
+  if (!hecho) {
+    db.prepare(`
+      UPDATE entregas
+      SET titulo = (SELECT c.titulo FROM contenido c WHERE c.id = entregas.contenido_id)
+      WHERE (titulo IS NULL OR titulo = '')
+        AND numero = '1'
+        AND (SELECT COUNT(*) FROM entregas e2 WHERE e2.contenido_id = entregas.contenido_id) > 1
+    `).run();
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('backfill_t1_titulo', '1')").run();
+  }
+}
+
 function getSetting(key) {
   return db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value ?? null;
 }

@@ -121,7 +121,7 @@
             <polyline points="2 17 12 22 22 17"/>
             <polyline points="2 12 12 17 22 12"/>
           </svg>
-          Añadir temporada (MAL)
+          Nuevas temporadas (MAL)
         </button>
       </div>
       <div class="sidebar-section">
@@ -367,27 +367,23 @@
     </div>
   </div>
 
-  <!-- ─── Modal Añadir temporada desde MAL ───────── -->
+  <!-- ─── Modal Nuevas temporadas desde MAL ──────── -->
   <div class="modal-overlay" id="modalAddSeason" style="display:none">
     <div class="modal-box" style="width:560px">
       <div class="modal-header">
-        <h2>Añadir temporada desde MAL</h2>
+        <h2>Nuevas temporadas desde MAL</h2>
         <button class="btn-close-modal" id="btnCerrarAddSeason">×</button>
       </div>
       <div class="modal-body">
-        <div class="settings-row">
-          <label>Serie</label>
-          <select id="addSeasonSerie"></select>
-        </div>
-        <div class="mal-row" style="margin-top:10px">
-          <input type="text" id="addSeasonInput" placeholder="Buscar la temporada en MyAnimeList...">
-          <button class="btn-secondary" id="btnAddSeasonBuscar" type="button">Buscar</button>
+        <div id="addSeasonStatus" class="malsync-info"></div>
+        <div class="malsync-progress" id="addSeasonProgWrap" style="display:none">
+          <div class="malsync-progress-bar" id="addSeasonBar" style="width:0%"></div>
         </div>
         <div id="addSeasonResults"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" id="btnCancelarAddSeason">Cancelar</button>
-        <button class="btn-primary"   id="btnAddSeasonConfirmar" disabled>Añadir</button>
+        <button class="btn-secondary" id="btnAddSeasonRescan" style="display:none">Volver a buscar</button>
+        <button class="btn-primary"   id="btnCerrarAddSeason2">Cerrar</button>
       </div>
     </div>
   </div>

@@ -66,7 +66,7 @@ function makeEditableNumber(span, cssClass, onSave) {
   });
 }
 
-async function cargarEntregas(contenidoId, container, tipo = 'anime') {
+async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloContenido = '') {
   const entregas = await api.getEntregas(contenidoId);
   const total    = entregas.length;
   const vistas   = entregas.filter(e => e.visto).length;
@@ -77,7 +77,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime') {
   if (globalEl) globalEl.style.display = total > 0 ? 'none' : '';
 
   const refresh = async () => {
-    await cargarEntregas(contenidoId, container, tipo);
+    await cargarEntregas(contenidoId, container, tipo, tituloContenido);
     const fresh = await api.getEntregas(contenidoId);
     const idx = state.todosLosItems.findIndex(i => i.id === contenidoId);
     if (idx !== -1) {
@@ -128,6 +128,8 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime') {
       });
     });
     document.getElementById('dhAddSeason').addEventListener('click', async () => {
+      // Al pasar a multi-temporada, evita que la 1ª temporada quede sin título.
+      if (!ent.titulo && tituloContenido) await api.renombrarEntrega(ent.id, tituloContenido);
       await api.guardarEntrega({ contenido_id: contenidoId, titulo: '' });
       refresh();
     });
@@ -315,7 +317,7 @@ export async function mostrarDetalle(id) {
 
     <div class="dh-foot">
       <button class="dh-btn-edit" id="btnEditarDetalle">✏ Editar</button>
-      ${!esPelicula ? `<button class="dh-btn-expand" id="btnAddTempDetalle" title="Añadir temporada desde MAL">
+      ${!esPelicula ? `<button class="dh-btn-expand" id="btnAddTempDetalle" title="Buscar nuevas temporadas (MAL)">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:middle">
           <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
         </svg>
@@ -325,7 +327,7 @@ export async function mostrarDetalle(id) {
     </div>
   `;
 
-  await cargarEntregas(id, document.getElementById('dhEntregas'), item.tipo === 'pelicula' ? 'pelicula' : 'serie');
+  await cargarEntregas(id, document.getElementById('dhEntregas'), item.tipo === 'pelicula' ? 'pelicula' : 'serie', item.titulo);
 
   inner.querySelectorAll('.tag-chip').forEach(chip => {
     chip.addEventListener('click', () => {
