@@ -1,6 +1,10 @@
 export function getImageSrc(imagen) {
   if (!imagen) return 'img/no-image.png';
-  if (imagen.startsWith('http')) return imagen;
+  if (imagen.startsWith('http')) {
+    // B.5: servir por el caché local (descarga la 1ª vez, luego desde disco).
+    const b64 = btoa(imagen).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return `imgcache://i/${b64}`;
+  }
   const normalized = imagen.replace(/\\/g, '/');
   return `file:///${normalized.replace(/^\//, '')}`;
 }

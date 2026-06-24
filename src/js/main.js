@@ -22,6 +22,7 @@ import { inicializarBulk, salirSeleccion, refrescarTagsBulk } from './ui/bulk-ac
 import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
 import { abrirAddSeason, cerrarAddSeason, inicializarAddSeason } from './ui/add-season.js';
 import { deshacer } from './lib/undo.js';
+import { toast } from './lib/toast.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -183,6 +184,10 @@ $('btnSettings').addEventListener('click', abrirSettings);
 $('btnCerrarSettings').addEventListener('click', cerrarSettings);
 $('btnCancelarSettings').addEventListener('click', cerrarSettings);
 $('btnGuardarSettings').addEventListener('click', guardarSettings);
+$('btnVaciarCacheImg').addEventListener('click', async () => {
+  await api.vaciarCacheImagenes();
+  toast.success('Caché de imágenes vaciada');
+});
 $('modalSettings').addEventListener('click', e => {
   if (e.target === $('modalSettings')) cerrarSettings();
 });

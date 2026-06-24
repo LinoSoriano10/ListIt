@@ -1,5 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
 const path = require('path');
+const fs   = require('fs');
+const crypto = require('crypto');
 const { hacerBackupDiario, exportarBd } = require('./lib/backup');
 const log  = require('./lib/logger');
 const db   = require('./db');
@@ -7,6 +9,25 @@ const db   = require('./db');
 // Backup diario antes de que la app abra la ventana
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
 hacerBackupDiario(dbPath);
+
+// B.5: caché local de imágenes, servido por el esquema propio imgcache://.
+const imgCacheDir = path.join(app.getPath('userData'), 'img-cache');
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'imgcache', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
+
+function rutaCacheImagen(url) {
+  const m   = url.match(/\.(jpe?g|png|webp|gif)(?:[?#]|$)/i);
+  const ext = m ? m[1].toLowerCase() : 'jpg';
+  return path.join(imgCacheDir, crypto.createHash('sha1').update(url).digest('hex') + '.' + ext);
+}
+
+function tipoMimeImagen(file) {
+  if (file.endsWith('.png'))  return 'image/png';
+  if (file.endsWith('.webp')) return 'image/webp';
+  if (file.endsWith('.gif'))  return 'image/gif';
+  return 'image/jpeg';
+}
 
 // Elimina el proceso GPU de Chromium (~50-100 MB de ahorro)
 app.disableHardwareAcceleration();
@@ -46,13 +67,42 @@ app.on('web-contents-created', (_, contents) => {
   });
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  fs.mkdirSync(imgCacheDir, { recursive: true });
+  // Sirve imgcache://i/<base64url-de-la-URL>: descarga al caché la 1ª vez y luego
+  // lo lee de disco. Si falla la caché, cae a buscar la URL remota directamente.
+  protocol.handle('imgcache', async (request) => {
+    const b64 = request.url.replace(/^imgcache:\/\/i\//, '');
+    let real;
+    try { real = Buffer.from(b64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'); }
+    catch { return new Response(null, { status: 400 }); }
+    const file = rutaCacheImagen(real);
+    try {
+      if (!fs.existsSync(file)) {
+        const resp = await net.fetch(real);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        await fs.promises.writeFile(file, Buffer.from(await resp.arrayBuffer()));
+      }
+      const data = await fs.promises.readFile(file);
+      return new Response(data, { headers: { 'Content-Type': tipoMimeImagen(file) } });
+    } catch {
+      try { return await net.fetch(real); } catch { return new Response(null, { status: 404 }); }
+    }
+  });
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
 // --- IPC handlers ---
+
+ipcMain.handle('vaciar-cache-imagenes', () => {
+  try { for (const f of fs.readdirSync(imgCacheDir)) fs.unlinkSync(path.join(imgCacheDir, f)); }
+  catch { /* no hay nada que vaciar */ }
+  return true;
+});
 
 ipcMain.handle('get-contenido', (_, filtros) => {
   return db.obtenerContenido(filtros);

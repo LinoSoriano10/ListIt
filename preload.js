@@ -57,6 +57,9 @@ contextBridge.exposeInMainWorld('api', {
   // Exportación
   exportarBd:       () => ipcRenderer.invoke('exportar-bd'),
 
+  // B.5 Caché de imágenes
+  vaciarCacheImagenes: () => ipcRenderer.invoke('vaciar-cache-imagenes'),
+
   // A.4 Duplicados
   buscarTituloSimilar: (titulo, excludeId) =>
     ipcRenderer.invoke('buscar-titulo-similar', { titulo, excludeId }),

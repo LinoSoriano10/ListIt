@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data: file:; connect-src 'self' https://api.jikan.moe; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data: file: imgcache:; connect-src 'self' https://api.jikan.moe; script-src 'self'; style-src 'self' 'unsafe-inline'">
   <title>ListIt</title>
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/layout.css">
@@ -333,6 +333,10 @@
               <option value="dark">Oscuro</option>
               <option value="light">Claro</option>
             </select>
+          </div>
+          <div class="settings-row">
+            <label>Caché de imágenes</label>
+            <button class="btn-secondary" id="btnVaciarCacheImg" type="button">Vaciar caché</button>
           </div>
         </div>
 

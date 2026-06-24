@@ -8,9 +8,13 @@ describe('getImageSrc', () => {
     expect(getImageSrc(undefined)).toBe('img/no-image.png');
   });
 
-  it('returns http URLs unchanged', () => {
+  it('routes http URLs through the local image cache (imgcache://)', () => {
     const url = 'https://cdn.myanimelist.net/image.jpg';
-    expect(getImageSrc(url)).toBe(url);
+    const src = getImageSrc(url);
+    expect(src.startsWith('imgcache://i/')).toBe(true);
+    // la URL original se recupera decodificando el base64url
+    const b64 = src.replace('imgcache://i/', '').replace(/-/g, '+').replace(/_/g, '/');
+    expect(atob(b64)).toBe(url);
   });
 
   it('converts Windows paths to file:// URL', () => {
