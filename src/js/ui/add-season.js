@@ -221,7 +221,7 @@ function actualizarBotonIgnoradas() {
 }
 
 // Lista de temporadas ignoradas con opción de restaurarlas (deshacer el ignorar).
-function mostrarIgnoradas() {
+async function mostrarIgnoradas() {
   setProgress(null);
   const results = document.getElementById('addSeasonResults');
   document.getElementById('btnAddSeasonRescan').style.display = '';
@@ -230,6 +230,23 @@ function mostrarIgnoradas() {
     results.innerHTML = '';
     return;
   }
+
+  // Rellena los títulos que falten (ignorados guardados sin título, formato antiguo).
+  const faltan = [...ignorados.entries()].filter(([, t]) => !t).map(([mid]) => mid);
+  if (faltan.length) {
+    setStatus('Cargando temporadas ignoradas…');
+    results.innerHTML = '';
+    let cambiado = false;
+    for (const mid of faltan) {
+      try {
+        const det = await jikanAnime(mid);
+        await delay();
+        if (det?.title) { ignorados.set(mid, det.title); cambiado = true; }
+      } catch (_) { /* sin red: se deja el id como respaldo */ }
+    }
+    if (cambiado) await api.setSetting('mal_ignorados', JSON.stringify([...ignorados]));
+  }
+
   setStatus(`Temporadas ignoradas (${ignorados.size}) — restaura las que quieras:`);
   results.innerHTML = [...ignorados.entries()].map(([mid, titulo]) => `
     <div class="mal-result-item">
