@@ -456,6 +456,18 @@ function autocompletarSiProcede(contenidoId) {
   return { antes: c.estado };
 }
 
+// Inverso: si se añade una temporada incompleta a una entrada 'completado', deja
+// de estar completa y vuelve a 'pendiente'. Devuelve { antes } o null.
+function revisarCompletadoTrasAnadir(contenidoId) {
+  const c = obtenerPorId(contenidoId);
+  if (!c || c.estado !== 'completado') return null;
+  const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales FROM entregas WHERE contenido_id = ?').all(contenidoId);
+  const todas = entregas.length > 0 && entregas.every(e => e.visto || (e.episodios_totales > 0 && e.episodio_actual >= e.episodios_totales));
+  if (todas) return null;
+  db.prepare("UPDATE contenido SET estado = 'pendiente', updated_at = datetime('now','localtime') WHERE id = ?").run(contenidoId);
+  return { antes: 'completado' };
+}
+
 // Inserción completa usada por el importador XML y por MAL
 function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, mal_id }) {
   const { maxPos } = db.prepare('SELECT COALESCE(MAX(posicion), 0) AS maxPos FROM entregas WHERE contenido_id = ?').get(contenido_id);
@@ -837,7 +849,13 @@ function setSetting(key, value) {
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(value ?? ''));
 }
 
+// Todas las URLs de imagen en uso (para limpiar huérfanos del caché).
+function obtenerImagenesUsadas() {
+  return db.prepare("SELECT imagen FROM contenido WHERE imagen IS NOT NULL AND imagen != ''").all().map(r => r.imagen);
+}
+
 module.exports = {
+  obtenerImagenesUsadas,
   obtenerContenido,
   obtenerPorId,
   guardarContenido,
@@ -860,6 +878,7 @@ module.exports = {
   actualizarEpEntrega,
   setEpTotalEntrega,
   autocompletarSiProcede,
+  revisarCompletadoTrasAnadir,
   eliminarEntrega,
   estadisticasGenerales,
   actividadPorMes,

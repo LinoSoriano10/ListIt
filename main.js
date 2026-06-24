@@ -29,6 +29,21 @@ function tipoMimeImagen(file) {
   return 'image/jpeg';
 }
 
+// Borra del caché las imágenes que ya no usa ninguna entrada (entradas borradas o
+// portadas cambiadas). Se ejecuta al arrancar; lo borrado se re-descarga al verse.
+function limpiarHuerfanosCache() {
+  try {
+    const validos = new Set(
+      db.obtenerImagenesUsadas()
+        .filter(u => u && u.startsWith('http'))
+        .map(u => path.basename(rutaCacheImagen(u)))
+    );
+    for (const f of fs.readdirSync(imgCacheDir)) {
+      if (!validos.has(f)) fs.unlinkSync(path.join(imgCacheDir, f));
+    }
+  } catch { /* sin caché o BD aún */ }
+}
+
 // Elimina el proceso GPU de Chromium (~50-100 MB de ahorro)
 app.disableHardwareAcceleration();
 
@@ -90,6 +105,7 @@ app.whenReady().then(() => {
     }
   });
   createWindow();
+  limpiarHuerfanosCache();
 });
 
 app.on('window-all-closed', () => {
@@ -175,7 +191,8 @@ ipcMain.handle('seleccionar-imagen', async () => {
 });
 
 ipcMain.handle('guardar-entrega-completa', (_, entrega) => {
-  return db.guardarEntregaCompleta(entrega);
+  const result = db.guardarEntregaCompleta(entrega);
+  return { ...result, reanudado: aplicarReanudacion(entrega.contenido_id) };
 });
 
 // ── Entregas ──────────────────────────────────────────────────────────────────
@@ -185,7 +202,8 @@ ipcMain.handle('get-entregas', (_, contenidoId) => {
 });
 
 ipcMain.handle('guardar-entrega', (_, entrega) => {
-  return db.guardarEntrega(entrega);
+  const result = db.guardarEntrega(entrega);
+  return { ...result, reanudado: aplicarReanudacion(entrega.contenido_id) };
 });
 
 // A.3: auto-completar una entrada cuando todas sus temporadas quedan completas.
@@ -193,6 +211,13 @@ function aplicarAutocompletado(contenidoId) {
   const auto = db.autocompletarSiProcede(contenidoId);
   if (auto) db.registrarActividad(contenidoId, 'estado_cambio', `${auto.antes} → completado`);
   return !!auto;
+}
+
+// Al añadir una temporada nueva, si la entrada estaba completada, reanudarla.
+function aplicarReanudacion(contenidoId) {
+  const r = db.revisarCompletadoTrasAnadir(contenidoId);
+  if (r) db.registrarActividad(contenidoId, 'estado_cambio', `${r.antes} → pendiente`);
+  return !!r;
 }
 
 ipcMain.handle('toggle-entrega', (_, id) => {

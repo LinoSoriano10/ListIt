@@ -117,7 +117,10 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
           <span class="dh-ep-num">Ep. ${epA}${pctU > 0 ? ` · ${pctU}%` : ''}</span>
           <button class="dh-ep-btn" id="dhUnicaMas" ${epT > 0 && epA >= epT ? 'disabled' : ''}>+</button>
         </div>
-        <button class="dh-add-season" id="dhAddSeason" title="Convertir en serie de varias temporadas">+ Añadir temporada</button>
+        <div class="entrega-add" style="margin-top:10px">
+          <input class="entrega-add-input" type="text" id="dhAddSeasonInput" placeholder="Nombre de la nueva temporada...">
+          <button class="entrega-add-btn" id="dhAddSeason" title="Añadir temporada">+</button>
+        </div>
       </div>
     `;
     document.getElementById('dhUnicaMas').addEventListener('click', async () => {
@@ -134,11 +137,16 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
         refresh(r?.autocompletado);
       });
     });
-    document.getElementById('dhAddSeason').addEventListener('click', async () => {
+    const dhAddSeasonUnica = async () => {
+      const nombre = document.getElementById('dhAddSeasonInput').value.trim();
       // Al pasar a multi-temporada, evita que la 1ª temporada quede sin título.
       if (!ent.titulo && tituloContenido) await api.renombrarEntrega(ent.id, tituloContenido);
-      await api.guardarEntrega({ contenido_id: contenidoId, titulo: '' });
-      refresh();
+      const r = await api.guardarEntrega({ contenido_id: contenidoId, titulo: nombre });
+      refresh(r?.reanudado);
+    };
+    document.getElementById('dhAddSeason').addEventListener('click', dhAddSeasonUnica);
+    document.getElementById('dhAddSeasonInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') dhAddSeasonUnica();
     });
     return;
   }
@@ -233,9 +241,9 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
   const addEntrega = async () => {
     const inputEl = document.getElementById('newEntregaInput');
     const titulo  = inputEl.value.trim();
-    await api.guardarEntrega({ contenido_id: contenidoId, titulo });
+    const r = await api.guardarEntrega({ contenido_id: contenidoId, titulo });
     inputEl.value = '';
-    refresh();
+    refresh(r?.reanudado);
   };
   document.getElementById('btnAddEntrega').addEventListener('click', addEntrega);
   document.getElementById('newEntregaInput').addEventListener('keydown', e => {
