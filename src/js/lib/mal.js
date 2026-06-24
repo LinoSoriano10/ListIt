@@ -1,6 +1,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escapeHtml } from './escape.js';
+import { extraerCamposMAL } from './mal-format.js';
 
 /**
  * Refresca una entrada concreta desde la API de Jikan.
@@ -162,30 +163,6 @@ export function aplicarDatosMAL(animes, renderNombresModal) {
   }
 }
 
-/**
- * Extrae los campos de C.3 desde una respuesta de la API Jikan v4.
- */
-export function extraerCamposMAL(anime) {
-  const fechaMAL = (iso) => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-    return `${meses[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-  };
-  const estadoEs = {
-    'Finished Airing':  'Finalizado',
-    'Currently Airing': 'En emisión',
-    'Not yet aired':    'No emitido aún',
-  };
-  return {
-    mal_id:            anime.mal_id || null,
-    score_mal:         anime.score  ?? null,
-    mal_rank:          anime.rank   ?? null,
-    estudio:           anime.studios?.[0]?.name || '',
-    duracion_ep:       anime.duration || '',
-    fecha_estreno:     fechaMAL(anime.aired?.from),
-    fecha_fin_emision: fechaMAL(anime.aired?.to),
-    estado_emision:    estadoEs[anime.status] || anime.status || '',
-  };
-}
+// extraerCamposMAL vive ahora en mal-format.js (puro/testeable); se re-exporta
+// aquí para no romper los imports existentes.
+export { extraerCamposMAL };

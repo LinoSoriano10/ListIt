@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { app } = require('electron');
+const { todasCompletas } = require('./lib/season-status');
 
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
 const db = new Database(dbPath);
@@ -447,9 +448,7 @@ function setEpTotalEntrega(id, total) {
 // (p. ej. películas) no se autocompletan aquí.
 function autocompletarSiProcede(contenidoId) {
   const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales FROM entregas WHERE contenido_id = ?').all(contenidoId);
-  if (entregas.length === 0) return null;
-  const todas = entregas.every(e => e.visto || (e.episodios_totales > 0 && e.episodio_actual >= e.episodios_totales));
-  if (!todas) return null;
+  if (!todasCompletas(entregas)) return null;
   const c = obtenerPorId(contenidoId);
   if (!c || c.estado === 'completado') return null;
   db.prepare("UPDATE contenido SET estado = 'completado', updated_at = datetime('now','localtime') WHERE id = ?").run(contenidoId);
@@ -462,8 +461,7 @@ function revisarCompletadoTrasAnadir(contenidoId) {
   const c = obtenerPorId(contenidoId);
   if (!c || c.estado !== 'completado') return null;
   const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales FROM entregas WHERE contenido_id = ?').all(contenidoId);
-  const todas = entregas.length > 0 && entregas.every(e => e.visto || (e.episodios_totales > 0 && e.episodio_actual >= e.episodios_totales));
-  if (todas) return null;
+  if (todasCompletas(entregas)) return null;
   db.prepare("UPDATE contenido SET estado = 'pendiente', updated_at = datetime('now','localtime') WHERE id = ?").run(contenidoId);
   return { antes: 'completado' };
 }
