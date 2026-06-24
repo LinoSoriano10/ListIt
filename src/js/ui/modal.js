@@ -157,8 +157,6 @@ export async function guardarDesdeModal() {
       ? mal.anio
       : (esEdicion ? state.itemEditando.anio : null),
     imagen:            document.getElementById('modalImagen').value.trim(),
-    fecha_inicio:      esEdicion ? (state.itemEditando.fecha_inicio || '') : '',
-    fecha_fin:         esEdicion ? (state.itemEditando.fecha_fin || '') : '',
     // Campos MAL (C.3) — solo si se rellenó desde MAL
     mal_id:            mal.mal_id            ?? (esEdicion ? state.itemEditando.mal_id            : null),
     score_mal:         mal.score_mal         ?? (esEdicion ? state.itemEditando.score_mal         : null),

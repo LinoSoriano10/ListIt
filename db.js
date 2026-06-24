@@ -17,9 +17,7 @@ db.prepare(`
     episodios_totales INTEGER DEFAULT 0,
     descripcion TEXT DEFAULT '',
     anio INTEGER,
-    imagen TEXT DEFAULT '',
-    fecha_inicio TEXT DEFAULT '',
-    fecha_fin TEXT DEFAULT ''
+    imagen TEXT DEFAULT ''
   )
 `).run();
 
@@ -58,6 +56,14 @@ db.prepare(`
       db.prepare(`ALTER TABLE contenido ADD COLUMN ${name} ${type}`).run();
     }
   }
+}
+
+// Migración: quitar el par de fechas personales vestigial (fecha_inicio/fecha_fin).
+// Las fechas de la serie son globales (fecha_estreno/fecha_fin_emision, de MAL).
+{
+  const cols = db.prepare('PRAGMA table_info(contenido)').all().map(c => c.name);
+  if (cols.includes('fecha_inicio')) db.prepare('ALTER TABLE contenido DROP COLUMN fecha_inicio').run();
+  if (cols.includes('fecha_fin'))    db.prepare('ALTER TABLE contenido DROP COLUMN fecha_fin').run();
 }
 
 // Migración: añadir columnas de episodios por entrega si no existen
@@ -265,10 +271,10 @@ function obtenerPorId(id) {
 function guardarContenido(item) {
   return db.prepare(`
     INSERT INTO contenido
-      (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, fecha_inicio, fecha_fin, updated_at,
+      (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, updated_at,
        mal_id, score_mal, mal_rank, fecha_estreno, fecha_fin_emision, estado_emision, estudio, duracion_ep)
     VALUES
-      (@titulo, @tipo, @estado, @episodio_actual, @episodios_totales, @descripcion, @anio, @imagen, @fecha_inicio, @fecha_fin, datetime('now','localtime'),
+      (@titulo, @tipo, @estado, @episodio_actual, @episodios_totales, @descripcion, @anio, @imagen, datetime('now','localtime'),
        @mal_id, @score_mal, @mal_rank, @fecha_estreno, @fecha_fin_emision, @estado_emision, @estudio, @duracion_ep)
   `).run({
     mal_id: null, score_mal: null, mal_rank: null,
@@ -290,8 +296,6 @@ function actualizarContenido(item) {
       descripcion       = @descripcion,
       anio              = @anio,
       imagen            = @imagen,
-      fecha_inicio      = @fecha_inicio,
-      fecha_fin         = @fecha_fin,
       updated_at        = datetime('now','localtime')
     WHERE id = @id
   `).run({ ...item, tipo: item.tipo || 'anime' });
@@ -434,6 +438,22 @@ function actualizarEpEntrega(id, delta) {
 
 function setEpTotalEntrega(id, total) {
   return db.prepare('UPDATE entregas SET episodios_totales = ? WHERE id = ?').run(Math.max(0, total), id);
+}
+
+// A.3: si TODAS las entregas de un contenido están completas (vistas o con todos
+// sus episodios) y no estaba ya completado, lo marca como 'completado'. No toca
+// ninguna fecha: las fechas de la serie son globales (estreno/fin de emisión, de
+// MAL), no personales. Devuelve { antes } o null. Las entradas sin entregas
+// (p. ej. películas) no se autocompletan aquí.
+function autocompletarSiProcede(contenidoId) {
+  const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales FROM entregas WHERE contenido_id = ?').all(contenidoId);
+  if (entregas.length === 0) return null;
+  const todas = entregas.every(e => e.visto || (e.episodios_totales > 0 && e.episodio_actual >= e.episodios_totales));
+  if (!todas) return null;
+  const c = obtenerPorId(contenidoId);
+  if (!c || c.estado === 'completado') return null;
+  db.prepare("UPDATE contenido SET estado = 'completado', updated_at = datetime('now','localtime') WHERE id = ?").run(contenidoId);
+  return { antes: c.estado };
 }
 
 // Inserción completa usada por el importador XML y por MAL
@@ -603,7 +623,7 @@ function contarPorTag() {
 // - imagen (contenido)                      → solo si no había imagen previa
 // - episodios_totales (entrega)             → solo si MAL > actual
 // - visto, episodio_actual, numero, titulo  → NUNCA se tocan
-// - estado, fecha_inicio, fecha_fin, tags   → NUNCA se tocan
+// - estado, tags                           → NUNCA se tocan
 // - contenido.titulo, descripcion           → NUNCA se tocan (el usuario pudo editarlos)
 
 /**
@@ -839,6 +859,7 @@ module.exports = {
   obtenerEntregaPorId,
   actualizarEpEntrega,
   setEpTotalEntrega,
+  autocompletarSiProcede,
   eliminarEntrega,
   estadisticasGenerales,
   actividadPorMes,

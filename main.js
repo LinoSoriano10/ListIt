@@ -138,6 +138,13 @@ ipcMain.handle('guardar-entrega', (_, entrega) => {
   return db.guardarEntrega(entrega);
 });
 
+// A.3: auto-completar una entrada cuando todas sus temporadas quedan completas.
+function aplicarAutocompletado(contenidoId) {
+  const auto = db.autocompletarSiProcede(contenidoId);
+  if (auto) db.registrarActividad(contenidoId, 'estado_cambio', `${auto.antes} → completado`);
+  return !!auto;
+}
+
 ipcMain.handle('toggle-entrega', (_, id) => {
   const result  = db.toggleEntrega(id);
   const entrega = db.obtenerEntregaPorId(id);
@@ -146,7 +153,8 @@ ipcMain.handle('toggle-entrega', (_, id) => {
     db.registrarActividad(entrega.contenido_id, 'entrega_marcada',
       `${entrega.titulo || entrega.numero} → ${estado}`);
   }
-  return result;
+  const autocompletado = entrega ? aplicarAutocompletado(entrega.contenido_id) : false;
+  return { ...result, autocompletado };
 });
 
 ipcMain.handle('renombrar-entrega', (_, { id, titulo }) => {
@@ -158,15 +166,21 @@ ipcMain.handle('renombrar-numero', (_, { id, numero }) => {
 });
 
 ipcMain.handle('ep-entrega-delta', (_, { id, delta }) => {
-  return db.actualizarEpEntrega(id, delta);
+  const result = db.actualizarEpEntrega(id, delta);
+  const e = db.obtenerEntregaPorId(id);
+  return { ...result, autocompletado: e ? aplicarAutocompletado(e.contenido_id) : false };
 });
 
 ipcMain.handle('set-ep-total-entrega', (_, { id, total }) => {
-  return db.setEpTotalEntrega(id, total);
+  const result = db.setEpTotalEntrega(id, total);
+  const e = db.obtenerEntregaPorId(id);
+  return { ...result, autocompletado: e ? aplicarAutocompletado(e.contenido_id) : false };
 });
 
 ipcMain.handle('eliminar-entrega', (_, id) => {
-  return db.eliminarEntrega(id);
+  const e = db.obtenerEntregaPorId(id);
+  const result = db.eliminarEntrega(id);
+  return { ...result, autocompletado: e ? aplicarAutocompletado(e.contenido_id) : false };
 });
 
 // ── Nombres alternativos ──────────────────────────────────────────────────────

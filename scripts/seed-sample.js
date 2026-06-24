@@ -29,9 +29,7 @@ const datos = [
       episodio_actual: 0, episodios_totales: 0,
       descripcion: 'La humanidad vive encerrada tras enormes murallas que la protegen de los Titanes. Cuando un titán colosal aparece y destruye la muralla exterior, Eren Yeager jura exterminar a todos los titanes.',
       anio: 2013,
-      imagen: 'https://cdn.myanimelist.net/images/anime/10/47347.jpg',
-      fecha_inicio: '', fecha_fin: '',
-    },
+      imagen: 'https://cdn.myanimelist.net/images/anime/10/47347.jpg',    },
     entregas: [
       { numero: 'S1', titulo: 'Temporada 1', visto: 1, episodio_actual: 25, episodios_totales: 25 },
       { numero: 'S2', titulo: 'Temporada 2', visto: 1, episodio_actual: 12, episodios_totales: 12 },
@@ -48,9 +46,7 @@ const datos = [
       episodio_actual: 18, episodios_totales: 28,
       descripcion: 'La maga elfa Frieren, miembro del grupo que derrotó al Rey Demonio, emprende un viaje para entender qué significa vivir entre los humanos cuyas vidas son tan breves comparadas con la suya.',
       anio: 2023,
-      imagen: 'https://cdn.myanimelist.net/images/anime/1015/138006.jpg',
-      fecha_inicio: '', fecha_fin: '',
-    },
+      imagen: 'https://cdn.myanimelist.net/images/anime/1015/138006.jpg',    },
     entregas: [],
   },
   {
@@ -62,9 +58,7 @@ const datos = [
       episodio_actual: 26, episodios_totales: 55,
       descripcion: 'Tanjiro Kamado descubre a su familia masacrada por un demonio. Su hermana Nezuko es la única superviviente, pero ha sido convertida en demonio. Tanjiro jura convertirse en cazador de demonios para devolverla a su forma humana.',
       anio: 2019,
-      imagen: 'https://cdn.myanimelist.net/images/anime/1286/99889.jpg',
-      fecha_inicio: '', fecha_fin: '',
-    },
+      imagen: 'https://cdn.myanimelist.net/images/anime/1286/99889.jpg',    },
     entregas: [],
   },
   {
@@ -76,9 +70,7 @@ const datos = [
       episodio_actual: 0, episodios_totales: 0,
       descripcion: 'Walter White, un profesor de química al que diagnostican cáncer, decide fabricar metanfetamina junto a un ex-alumno para asegurar el futuro económico de su familia.',
       anio: 2008,
-      imagen: '',
-      fecha_inicio: '', fecha_fin: '',
-    },
+      imagen: '',    },
     entregas: [
       { numero: 'S1', titulo: 'Season 1', visto: 1, episodio_actual: 7,  episodios_totales: 7  },
       { numero: 'S2', titulo: 'Season 2', visto: 1, episodio_actual: 13, episodios_totales: 13 },
@@ -96,9 +88,7 @@ const datos = [
       episodio_actual: 0, episodios_totales: 0,
       descripcion: 'Geralt de Rivia, un cazador de monstruos mutante, lucha por encontrar su lugar en un mundo donde a menudo las personas resultan ser más malvadas que las bestias.',
       anio: 2019,
-      imagen: '',
-      fecha_inicio: '', fecha_fin: '',
-    },
+      imagen: '',    },
     entregas: [
       { numero: 'S1', titulo: 'Temporada 1', visto: 1, episodio_actual: 8, episodios_totales: 8 },
       { numero: 'S2', titulo: 'Temporada 2', visto: 1, episodio_actual: 8, episodios_totales: 8 },
@@ -114,9 +104,7 @@ const datos = [
       episodio_actual: 0, episodios_totales: 0,
       descripcion: 'Chihiro, una niña de 10 años, se ve atrapada en un mundo mágico de espíritus tras la transformación de sus padres en cerdos. Para sobrevivir y rescatarlos, debe trabajar en una casa de baños regida por la bruja Yubaba.',
       anio: 2001,
-      imagen: '',
-      fecha_inicio: '', fecha_fin: '',
-    },
+      imagen: '',    },
     entregas: [],
   },
   {
@@ -128,9 +116,7 @@ const datos = [
       episodio_actual: 0, episodios_totales: 0,
       descripcion: 'Paul Atreides se une a los Fremen para emprender una guerra de venganza contra los conspiradores que destruyeron a su familia. Frente a una elección entre el amor de su vida y el destino del universo conocido, debe evitar un futuro terrible que solo él puede prever.',
       anio: 2024,
-      imagen: '',
-      fecha_inicio: '', fecha_fin: '',
-    },
+      imagen: '',    },
     entregas: [],
   },
 ];
@@ -160,13 +146,12 @@ const tx = db.transaction((datos) => {
 
     const res = db.prepare(`
       INSERT INTO contenido
-        (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, fecha_inicio, fecha_fin, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (titulo, tipo, estado, episodio_actual, episodios_totales, descripcion, anio, imagen, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       titulo, contenido.tipo, contenido.estado,
       contenido.episodio_actual, contenido.episodios_totales,
       contenido.descripcion, contenido.anio, contenido.imagen,
-      contenido.fecha_inicio, contenido.fecha_fin,
       ahora(),
     );
     const contenidoId = res.lastInsertRowid;

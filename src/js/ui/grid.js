@@ -4,6 +4,7 @@ import { STATUS_COLOR } from '../lib/colors.js';
 import { getImageSrc } from '../lib/image.js';
 import { escapeHtml } from '../lib/escape.js';
 import { mostrarDetalle } from './detail.js';
+import { cargarContenido } from './content.js';
 
 // ── Helper de subtítulo ──────────────────────────────────────────────────────
 // Fuente única de verdad para el texto que aparece bajo el título en la card.
@@ -119,7 +120,11 @@ export function renderGrid(items) {
         e.stopPropagation();
 
         if (tieneEntregaEnCurso) {
-          await api.epEntregaDelta(item.entrega_en_curso_id, 1);
+          const r = await api.epEntregaDelta(item.entrega_en_curso_id, 1);
+          if (r?.autocompletado) {
+            await cargarContenido(document.getElementById('searchBar')?.value || '');
+            return;
+          }
 
           // Re-leer entregas para actualizar cache con datos frescos
           const entregas  = await api.getEntregas(item.id);

@@ -76,7 +76,14 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
   const globalEl = document.getElementById('dhEpGlobal');
   if (globalEl) globalEl.style.display = total > 0 ? 'none' : '';
 
-  const refresh = async () => {
+  const refresh = async (recargar = false) => {
+    // A.3: si la entrada se auto-completó, recargar todo para reflejar el cambio
+    // de estado (sale del filtro "Viendo", cambia el color, etc.).
+    if (recargar) {
+      await cargarContenido(document.getElementById('searchBar')?.value || '');
+      if (state.idActual === contenidoId) mostrarDetalle(contenidoId);
+      return;
+    }
     await cargarEntregas(contenidoId, container, tipo, tituloContenido);
     const fresh = await api.getEntregas(contenidoId);
     const idx = state.todosLosItems.findIndex(i => i.id === contenidoId);
@@ -114,17 +121,17 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
       </div>
     `;
     document.getElementById('dhUnicaMas').addEventListener('click', async () => {
-      await api.epEntregaDelta(ent.id, 1);
-      refresh();
+      const r = await api.epEntregaDelta(ent.id, 1);
+      refresh(r?.autocompletado);
     });
     document.getElementById('dhUnicaMenos').addEventListener('click', async () => {
-      await api.epEntregaDelta(ent.id, -1);
-      refresh();
+      const r = await api.epEntregaDelta(ent.id, -1);
+      refresh(r?.autocompletado);
     });
     document.getElementById('dhUnicaTotal').addEventListener('click', () => {
       makeEditableNumber(document.getElementById('dhUnicaTotal'), 'entrega-ep-total-edit', async (totalNuevo) => {
-        await api.setEpTotalEntrega(ent.id, totalNuevo);
-        refresh();
+        const r = await api.setEpTotalEntrega(ent.id, totalNuevo);
+        refresh(r?.autocompletado);
       });
     });
     document.getElementById('dhAddSeason').addEventListener('click', async () => {
@@ -183,29 +190,29 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
 
   container.querySelectorAll('.entrega-check').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await api.toggleEntrega(parseInt(btn.dataset.id));
-      refresh();
+      const r = await api.toggleEntrega(parseInt(btn.dataset.id));
+      refresh(r?.autocompletado);
     });
   });
 
   container.querySelectorAll('.entrega-del').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await api.eliminarEntrega(parseInt(btn.dataset.id));
-      refresh();
+      const r = await api.eliminarEntrega(parseInt(btn.dataset.id));
+      refresh(r?.autocompletado);
     });
   });
 
   container.querySelectorAll('.entrega-ep-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await api.epEntregaDelta(parseInt(btn.dataset.id), parseInt(btn.dataset.delta));
-      refresh();
+      const r = await api.epEntregaDelta(parseInt(btn.dataset.id), parseInt(btn.dataset.delta));
+      refresh(r?.autocompletado);
     });
   });
 
   container.querySelectorAll('.entrega-ep-total').forEach(span => {
     span.addEventListener('click', () => makeEditableNumber(span, 'entrega-ep-total-edit', async (total) => {
-      await api.setEpTotalEntrega(parseInt(span.dataset.id), total);
-      refresh();
+      const r = await api.setEpTotalEntrega(parseInt(span.dataset.id), total);
+      refresh(r?.autocompletado);
     }));
   });
 
@@ -289,6 +296,12 @@ export async function mostrarDetalle(id) {
   const epTotal  = item.episodios_totales || 0;
   const metaParts = [];
   if (tieneEpisodios && epTotal > 0) metaParts.push(`${epTotal} ep.`);
+  if (item.fecha_estreno) {
+    metaParts.push(item.fecha_fin_emision && item.fecha_fin_emision !== item.fecha_estreno
+      ? `${escapeHtml(item.fecha_estreno)} → ${escapeHtml(item.fecha_fin_emision)}`
+      : escapeHtml(item.fecha_estreno));
+  }
+  if (item.estado_emision) metaParts.push(escapeHtml(item.estado_emision));
 
   inner.innerHTML = `
     <div class="dh-hero">
