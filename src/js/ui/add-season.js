@@ -186,7 +186,7 @@ function renderCandidatos(candidatos, omitidas = 0) {
       <div class="mal-result-item" data-idx="${idx}">
         <img class="mal-result-img" src="${escapeHtml(img)}" alt="">
         <div class="mal-result-info">
-          <div class="mal-result-title mq">${escapeHtml(tituloMAL(a))}</div>
+          <div class="mal-result-title mq"><span class="mq__i">${escapeHtml(tituloMAL(a))}</span></div>
           <div class="mal-result-meta">${escapeHtml(c.serie.titulo)} · ${escapeHtml(meta)}</div>
         </div>
         <button class="btn-secondary" data-act="ignorar" data-idx="${idx}" style="margin-left:auto" title="Ya lo viste o es un trozo de otra temporada">Ignorar</button>
@@ -253,7 +253,7 @@ async function mostrarIgnoradas() {
   results.innerHTML = [...ignorados.entries()].map(([mid, titulo]) => `
     <div class="mal-result-item">
       <div class="mal-result-info">
-        <div class="mal-result-title mq">${escapeHtml(titulo || `MyAnimeList #${mid}`)}</div>
+        <div class="mal-result-title mq"><span class="mq__i">${escapeHtml(titulo || `MyAnimeList #${mid}`)}</span></div>
       </div>
       <button class="btn-secondary" data-restaurar="${mid}" style="margin-left:auto">Restaurar</button>
     </div>`).join('');

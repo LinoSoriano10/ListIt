@@ -7,11 +7,11 @@ describe('calcMarquee', () => {
     expect(calcMarquee(101, 100)).toBe(null); // margen de 2px
   });
 
-  it('texto que desborda → shift = -exceso, duración proporcional', () => {
-    expect(calcMarquee(300, 100)).toEqual({ shift: -200, dur: 4 });
+  it('texto que desborda → shift = -exceso, duración proporcional (~100 px/s)', () => {
+    expect(calcMarquee(300, 100)).toEqual({ shift: -200, dur: 2 });
   });
 
-  it('desbordes pequeños usan la duración mínima (0.35s)', () => {
-    expect(calcMarquee(110, 100)).toEqual({ shift: -10, dur: 0.35 });
+  it('desbordes pequeños usan la duración mínima (0.4s)', () => {
+    expect(calcMarquee(110, 100)).toEqual({ shift: -10, dur: 0.4 });
   });
 });

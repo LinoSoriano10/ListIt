@@ -186,17 +186,25 @@
   text-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
 
-/* Marquee al hover: si un título .mq no cabe, se desliza para mostrar el resto
-   y vuelve al salir. marquee.js fija --mq-shift y --mq-dur al pasar el ratón. */
-.mq {
+/* Marquee al hover: el texto va en .mq__i dentro de .mq. Al pasar el ratón se
+   desliza con transform (suave, compositado) para mostrar el resto y vuelve al
+   salir. .mq__i tiene pointer-events:none para no re-disparar el hover al moverse.
+   marquee.js mide y fija --mq-shift y --mq-dur (la duración un frame antes). */
+.mq { overflow: hidden; }
+.mq__i {
+  display: inline-block;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: text-indent var(--mq-dur, 0s) linear;
+  vertical-align: bottom;
+  pointer-events: none;
+  transition: transform var(--mq-dur, 0s) linear;
 }
-.mq:hover {
+.mq:hover .mq__i {
+  max-width: none;
   text-overflow: clip;
-  text-indent: var(--mq-shift, 0px);
+  transform: translateX(var(--mq-shift, 0px));
 }
 .card-sub {
   display: flex;
