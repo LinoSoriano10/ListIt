@@ -68,7 +68,7 @@ export async function buscarEnMAL(query, onSelect) {
         <span class="mal-checkbox-icon"></span>
         <img class="mal-result-img" src="${escapeHtml(imgSrc)}" alt="">
         <div class="mal-result-info">
-          <div class="mal-result-title">${escapeHtml(tituloMAL(anime))}</div>
+          <div class="mal-result-title mq">${escapeHtml(tituloMAL(anime))}</div>
           <div class="mal-result-meta">${escapeHtml(meta)}</div>
         </div>`;
 

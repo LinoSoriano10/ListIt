@@ -54,7 +54,7 @@ export function renderGrid(items) {
         <img class="card-img" src="${escapeHtml(getImageSrc(item.imagen))}" alt="${escapeHtml(item.titulo)}"
              loading="lazy">
         <div class="card-grad">
-          <div class="card-title">${escapeHtml(item.titulo)}</div>
+          <div class="card-title" title="${escapeHtml(item.titulo)}">${escapeHtml(item.titulo)}</div>
           <div class="card-sub">
             <span class="card-dot"></span>
             <span>${escapeHtml(calcularProgreso(item))}</span>

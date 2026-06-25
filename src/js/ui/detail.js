@@ -161,7 +161,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
         <span class="entrega-drag-handle" title="Arrastrar para reordenar">⠿</span>
         <button class="entrega-check${e.visto ? ' checked' : ''}" data-id="${e.id}">✓</button>
         <span class="entrega-num"   data-id="${e.id}" title="Doble clic para editar">${escapeHtml(e.numero)}</span>
-        <span class="entrega-titulo" data-id="${e.id}" title="Doble clic para renombrar">${escapeHtml(e.titulo || '')}</span>
+        <span class="entrega-titulo mq" data-id="${e.id}" title="Doble clic para renombrar">${escapeHtml(e.titulo || '')}</span>
         ${conEp ? `
           <div class="entrega-ep">
             <button class="entrega-ep-btn" data-id="${e.id}" data-delta="-1" ${epDisabledMenos}>−</button>

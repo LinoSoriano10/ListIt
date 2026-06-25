@@ -185,6 +185,19 @@
   margin-bottom: 5px;
   text-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
+
+/* Marquee al hover: si un título .mq no cabe, se desliza para mostrar el resto
+   y vuelve al salir. marquee.js fija --mq-shift y --mq-dur al pasar el ratón. */
+.mq {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: text-indent var(--mq-dur, 0s) linear;
+}
+.mq:hover {
+  text-overflow: clip;
+  text-indent: var(--mq-shift, 0px);
+}
 .card-sub {
   display: flex;
   align-items: center;

@@ -14,6 +14,7 @@ import {
 } from './ui/modal.js';
 import { buscarEnMAL, aplicarDatosMAL } from './lib/mal.js';
 import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
+import { instalarMarquee } from './lib/marquee.js';
 import { cargarDashboard } from './ui/dashboard.js';
 import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
 import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema } from './ui/settings.js';
@@ -28,6 +29,8 @@ const $ = (id) => document.getElementById(id);
 
 // Fallback de imágenes rotas sin handlers inline (compatible con la CSP estricta).
 instalarFallbackImagenes();
+// Marquee al hover para títulos largos (delegación global en el body).
+instalarMarquee();
 
 // Cuando otra ventana (el detalle expandido) actualiza datos desde MAL, el
 // proceso principal nos avisa para no quedarnos con datos obsoletos: recargamos

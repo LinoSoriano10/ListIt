@@ -233,7 +233,7 @@ function renderViendo(items) {
       <div class="dash-viendo-item">
         <img class="dash-viendo-img" src="${escapeHtml(getImageSrc(c.imagen))}" alt="">
         <div class="dash-viendo-info">
-          <div class="dash-viendo-titulo">${escapeHtml(c.titulo)}</div>
+          <div class="dash-viendo-titulo mq">${escapeHtml(c.titulo)}</div>
           ${textoProgreso ? `
             <div class="dash-viendo-progreso">
               <div class="dh-ep-bar" style="margin:4px 0 2px">
@@ -311,7 +311,7 @@ function renderActividadReciente(eventos) {
       <div class="dash-act-item">
         <span class="dash-act-icon">${icon}</span>
         <div class="dash-act-info">
-          <span class="dash-act-titulo">${escapeHtml(e.titulo || '–')}</span>
+          <span class="dash-act-titulo mq">${escapeHtml(e.titulo || '–')}</span>
           ${e.detalle ? `<span class="dash-act-detalle">${escapeHtml(e.detalle)}</span>` : ''}
         </div>
         <span class="dash-act-fecha">${fecha}</span>
