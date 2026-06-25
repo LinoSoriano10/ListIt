@@ -19,6 +19,12 @@ export function traducirEstadoEmision(status) {
   return ESTADO_EMISION[status] || status || '';
 }
 
+// Título preferido para mostrar/guardar: inglés si existe (más reconocible),
+// si no el romaji (`title`).
+export function tituloMAL(anime) {
+  return anime.title_english || anime.title || '';
+}
+
 /**
  * Extrae los campos de C.3 desde una respuesta de la API Jikan v4.
  */

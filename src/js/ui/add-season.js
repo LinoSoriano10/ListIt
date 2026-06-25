@@ -10,6 +10,7 @@ import { escapeHtml } from '../lib/escape.js';
 import { toast } from '../lib/toast.js';
 import { cargarContenido } from './content.js';
 import { mostrarDetalle } from './detail.js';
+import { tituloMAL } from '../lib/mal-format.js';
 
 const JIKAN_DELAY_MS = 400;
 const VENTANA_MS = 7 * 24 * 60 * 60 * 1000; // no recomprobar un anime más de una vez por semana
@@ -185,7 +186,7 @@ function renderCandidatos(candidatos, omitidas = 0) {
       <div class="mal-result-item" data-idx="${idx}">
         <img class="mal-result-img" src="${escapeHtml(img)}" alt="">
         <div class="mal-result-info">
-          <div class="mal-result-title">${escapeHtml(a.title || '')}</div>
+          <div class="mal-result-title">${escapeHtml(tituloMAL(a))}</div>
           <div class="mal-result-meta">${escapeHtml(c.serie.titulo)} · ${escapeHtml(meta)}</div>
         </div>
         <button class="btn-secondary" data-act="ignorar" data-idx="${idx}" style="margin-left:auto" title="Ya lo viste o es un trozo de otra temporada">Ignorar</button>
@@ -204,8 +205,8 @@ function renderCandidatos(candidatos, omitidas = 0) {
     btn.addEventListener('click', async () => {
       const c = candidatos[parseInt(btn.dataset.idx)];
       // Acción consciente: confirmar para que un clic accidental no la condene.
-      if (!confirm(`¿Ignorar «${c.anime.title}»?\nDejará de recomendarse; puedes deshacerlo en «Ignoradas».`)) return;
-      ignorados.set(c.anime.mal_id, c.anime.title || '');
+      if (!confirm(`¿Ignorar «${tituloMAL(c.anime)}»?\nDejará de recomendarse; puedes deshacerlo en «Ignoradas».`)) return;
+      ignorados.set(c.anime.mal_id, tituloMAL(c.anime));
       await api.setSetting('mal_ignorados', JSON.stringify([...ignorados]));
       actualizarBotonIgnoradas();
       btn.closest('.mal-result-item').remove();
@@ -241,7 +242,8 @@ async function mostrarIgnoradas() {
       try {
         const det = await jikanAnime(mid);
         await delay();
-        if (det?.title) { ignorados.set(mid, det.title); cambiado = true; }
+        const t = det ? tituloMAL(det) : '';
+        if (t) { ignorados.set(mid, t); cambiado = true; }
       } catch (_) { /* sin red: se deja el id como respaldo */ }
     }
     if (cambiado) await api.setSetting('mal_ignorados', JSON.stringify([...ignorados]));
@@ -275,13 +277,13 @@ async function anadirTemporada({ serie, anime }) {
   await api.guardarEntregaCompleta({
     contenido_id:      serie.id,
     numero:            `T${entregas.length + 1}`,
-    titulo:            anime.title || '',
+    titulo:            tituloMAL(anime),
     episodios_totales: anime.episodes || 0,
     episodio_actual:   0,
     visto:             0,
     mal_id:            anime.mal_id || null,
   });
-  toast.success(`Añadida a «${serie.titulo}»: ${anime.title}`);
+  toast.success(`Añadida a «${serie.titulo}»: ${tituloMAL(anime)}`);
   await cargarContenido(document.getElementById('searchBar')?.value || '');
   if (state.idActual === serie.id) mostrarDetalle(serie.id);
 }

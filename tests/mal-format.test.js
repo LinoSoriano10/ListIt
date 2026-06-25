@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatearFechaMAL, traducirEstadoEmision, extraerCamposMAL } from '../src/js/lib/mal-format.js';
+import { formatearFechaMAL, traducirEstadoEmision, extraerCamposMAL, tituloMAL } from '../src/js/lib/mal-format.js';
 
 describe('formatearFechaMAL', () => {
   it('ISO válida → "Mmm AAAA" (UTC)', () => {
@@ -51,5 +51,18 @@ describe('extraerCamposMAL', () => {
       estudio: '', duracion_ep: '',
       fecha_estreno: '', fecha_fin_emision: '', estado_emision: '',
     });
+  });
+});
+
+describe('tituloMAL', () => {
+  it('prefiere el título en inglés', () => {
+    expect(tituloMAL({ title: 'Shingeki no Kyojin', title_english: 'Attack on Titan' })).toBe('Attack on Titan');
+  });
+  it('cae al romaji si no hay inglés', () => {
+    expect(tituloMAL({ title: 'Mushishi', title_english: null })).toBe('Mushishi');
+    expect(tituloMAL({ title: 'Mushishi' })).toBe('Mushishi');
+  });
+  it('sin títulos → ""', () => {
+    expect(tituloMAL({})).toBe('');
   });
 });

@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escapeHtml } from './escape.js';
-import { extraerCamposMAL } from './mal-format.js';
+import { extraerCamposMAL, tituloMAL } from './mal-format.js';
 
 /**
  * Refresca una entrada concreta desde la API de Jikan.
@@ -68,7 +68,7 @@ export async function buscarEnMAL(query, onSelect) {
         <span class="mal-checkbox-icon"></span>
         <img class="mal-result-img" src="${escapeHtml(imgSrc)}" alt="">
         <div class="mal-result-info">
-          <div class="mal-result-title">${escapeHtml(anime.title || '')}</div>
+          <div class="mal-result-title">${escapeHtml(tituloMAL(anime))}</div>
           <div class="mal-result-meta">${escapeHtml(meta)}</div>
         </div>`;
 
@@ -115,23 +115,25 @@ export function aplicarDatosMAL(animes, renderNombresModal) {
   const principal = lista[0];
 
   // Título, descripción e imagen del principal (primera temporada cronológica)
-  document.getElementById('modalTitulo').value = principal.title || '';
+  // Título principal: inglés si existe (más reconocible), si no romaji.
+  const tituloPrincipal = tituloMAL(principal);
+  document.getElementById('modalTitulo').value = tituloPrincipal;
   const synopsis = (principal.synopsis || '').replace(/\[Written by MAL Rewrite\]/g, '').trim();
   document.getElementById('modalDescripcion').value = synopsis;
   const imgUrl = principal.images?.jpg?.large_image_url || principal.images?.jpg?.image_url || '';
   document.getElementById('modalImagen').value = imgUrl;
   document.getElementById('modalPreview').src  = imgUrl || 'img/no-image.png';
 
-  // Nombres alternativos de todas las temporadas seleccionadas
+  // Nombres alternativos de todas las temporadas: romaji, inglés, japonés y
+  // sinónimos (así el título que no quedó como principal sigue siendo buscable).
   const nombresSet = new Set(state.nombresModal);
-  lista.forEach((anime, i) => {
-    if (anime.title_english && anime.title_english !== principal.title) nombresSet.add(anime.title_english);
+  lista.forEach((anime) => {
+    if (anime.title)          nombresSet.add(anime.title);
+    if (anime.title_english)  nombresSet.add(anime.title_english);
     if (anime.title_japanese) nombresSet.add(anime.title_japanese);
     (anime.title_synonyms || []).forEach(s => { if (s) nombresSet.add(s); });
-    // Las temporadas adicionales se añaden también como nombre alternativo
-    if (i > 0 && anime.title && anime.title !== principal.title) nombresSet.add(anime.title);
   });
-  state.nombresModal = [...nombresSet].filter(n => n && n !== principal.title);
+  state.nombresModal = [...nombresSet].filter(n => n && n !== tituloPrincipal);
   renderNombresModal();
 
   // Campos MAL — siempre del primero (es la entrada "principal" / temporada 1).
@@ -154,7 +156,7 @@ export function aplicarDatosMAL(animes, renderNombresModal) {
     };
     state.malEntregasPendientes = lista.map((anime, i) => ({
       numero:            `T${i + 1}`,
-      titulo:            anime.title || '',
+      titulo:            tituloMAL(anime),
       episodios_totales: anime.episodes || 0,
       episodio_actual:   0,
       visto:             0,
