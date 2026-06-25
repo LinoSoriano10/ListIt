@@ -127,7 +127,9 @@ async function escanear(forzar = false) {
     let error      = false;
     try {
       const entregas = await api.getEntregas(s.id);
-      const owned    = new Set(entregas.map(e => e.mal_id).filter(Boolean));
+      // El propio contenido es su 1ª temporada → siempre cuenta como poseído (si
+      // no, una entrada de 1 temporada con MAL se ofrecería a sí misma como T2).
+      const owned    = new Set([s.mal_id, ...entregas.map(e => e.mal_id).filter(Boolean)]);
 
       // Recorre TODA la cadena de la franquicia desde su raíz (mal_id del
       // contenido = 1ª temporada) y ofrece cualquier temporada que no tengas y no
