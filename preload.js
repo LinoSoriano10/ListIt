@@ -60,6 +60,9 @@ contextBridge.exposeInMainWorld('api', {
   // B.5 Caché de imágenes
   vaciarCacheImagenes: () => ipcRenderer.invoke('vaciar-cache-imagenes'),
 
+  // (B) Marca de emisión de la franquicia
+  setEmisionFranquicia: (id, estado) => ipcRenderer.invoke('set-emision-franquicia', { id, estado }),
+
   // A.4 Duplicados
   buscarTituloSimilar: (titulo, excludeId) =>
     ipcRenderer.invoke('buscar-titulo-similar', { titulo, excludeId }),

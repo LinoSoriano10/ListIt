@@ -150,6 +150,10 @@ ipcMain.handle('get-detalle', (_, id) => {
   return db.obtenerPorId(id);
 });
 
+ipcMain.handle('set-emision-franquicia', (_, { id, estado }) => {
+  return db.setEmisionFranquicia(id, estado);
+});
+
 ipcMain.handle('guardar-contenido', (_, item) => {
   const r = db.guardarContenido(item);
   const newId = Number(r.lastInsertRowid);

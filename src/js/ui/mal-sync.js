@@ -4,8 +4,9 @@
 
 import { api } from '../api.js';
 import { escapeHtml } from '../lib/escape.js';
+import { jikanGet } from '../lib/jikan.js';
 
-const JIKAN_DELAY_MS = 400; // Jikan permite ~60 req/min con burst de 3
+const JIKAN_DELAY_MS = 1200; // ~50 req/min, por debajo del límite de Jikan (60/min)
 let cancelado = false;
 
 export async function abrirMalSync() {
@@ -38,7 +39,7 @@ export async function abrirMalSync() {
       </p>
     </div>
     <p style="font-size:11px;color:var(--muted);text-align:center">
-      Tiempo estimado: ${Math.ceil(total * JIKAN_DELAY_MS / 1000)} s · 400ms entre peticiones
+      Tiempo estimado: ${Math.ceil(total * JIKAN_DELAY_MS / 1000)} s · ${JIKAN_DELAY_MS}ms entre peticiones (reintenta ante 429)
     </p>
     ` : ''}
   `;
@@ -77,6 +78,7 @@ async function ejecutarSync(entradas) {
     sinCambios:   0,
     errores:      [],
     novedades:    [],
+    fallidas:     [],   // entradas que erraron, para poder reintentarlas
   };
 
   for (let i = 0; i < entradas.length; i++) {
@@ -86,11 +88,9 @@ async function ejecutarSync(entradas) {
     document.getElementById('malSyncBar').style.width = pct + '%';
     document.getElementById('malSyncCurrent').textContent = `${i+1}/${total} · ${e.titulo}`;
     try {
-      const resp = await fetch(`https://api.jikan.moe/v4/anime/${e.mal_id}`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const json = await resp.json();
-      if (!json.data) throw new Error('Sin datos');
-      const res = await api.actualizarDesdeMal(e.id, json.data);
+      const data = await jikanGet(`https://api.jikan.moe/v4/anime/${e.mal_id}`, 5, 3000);
+      if (!data) throw new Error('Sin datos');
+      const res = await api.actualizarDesdeMal(e.id, data);
       if (res.cambios.length > 0) {
         resumen.actualizadas++;
         if (res.episodios_actualizados) {
@@ -100,12 +100,13 @@ async function ejecutarSync(entradas) {
         resumen.sinCambios++;
       }
       // Detectar secuelas
-      const sec = (json.data.relations || []).find(r => r.relation === 'Sequel');
+      const sec = (data.relations || []).find(r => r.relation === 'Sequel');
       if (sec && sec.entry?.length) {
         resumen.novedades.push(`"${e.titulo}" — secuela en MAL: ${sec.entry[0].name}`);
       }
     } catch (err) {
       resumen.errores.push(`${e.titulo}: ${err.message || err}`);
+      resumen.fallidas.push(e);
     }
     // Rate limit
     if (i < entradas.length - 1 && !cancelado) {
@@ -152,9 +153,14 @@ function mostrarResultado(r, cancelled) {
     </div>
     ` : ''}
   `;
+  const hayFallidas = r.fallidas && r.fallidas.length > 0;
   document.getElementById('malSyncFooter').innerHTML = `
+    ${hayFallidas ? `<button class="btn-secondary" id="btnMalSyncRetry">Reintentar fallidas (${r.fallidas.length})</button>` : ''}
     <button class="btn-primary" id="btnMalSyncDone">Cerrar</button>
   `;
+  if (hayFallidas) {
+    document.getElementById('btnMalSyncRetry').onclick = () => { cancelado = false; ejecutarSync(r.fallidas); };
+  }
   document.getElementById('btnMalSyncDone').onclick = async () => {
     cerrarMalSync();
     // Notificar al main que recargue

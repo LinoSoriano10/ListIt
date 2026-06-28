@@ -10,7 +10,8 @@ import { escapeHtml } from '../lib/escape.js';
 import { toast } from '../lib/toast.js';
 import { cargarContenido } from './content.js';
 import { mostrarDetalle } from './detail.js';
-import { tituloMAL } from '../lib/mal-format.js';
+import { tituloMAL, codigoEmision } from '../lib/mal-format.js';
+import { jikanGet } from '../lib/jikan.js';
 
 const JIKAN_DELAY_MS = 400;
 const VENTANA_MS = 7 * 24 * 60 * 60 * 1000; // no recomprobar un anime más de una vez por semana
@@ -20,18 +21,6 @@ let ignorados    = new Map();   // mal_id -> título de las temporadas ignoradas
 let sequelMap    = {};          // caché de la cadena: mal_id -> mal_id de su secuela
 
 const delay = () => new Promise(r => setTimeout(r, JIKAN_DELAY_MS));
-
-// Jikan limita ~60 req/min; ante un 429 esperamos y reintentamos para que la
-// cadena de secuelas no se corte tras la primera temporada.
-async function jikanGet(url, intentos = 4) {
-  for (let i = 0; i < intentos; i++) {
-    const resp = await fetch(url);
-    if (resp.status === 429) { await new Promise(r => setTimeout(r, 1500)); continue; }
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    return (await resp.json()).data;
-  }
-  throw new Error('Jikan rate limit');
-}
 
 async function jikanRelations(malId) {
   return (await jikanGet(`https://api.jikan.moe/v4/anime/${malId}/relations`)) || [];
@@ -135,20 +124,30 @@ async function escanear(forzar = false) {
       // contenido = 1ª temporada) y ofrece cualquier temporada que no tengas y no
       // hayas ignorado: así reaparecen las borradas, no solo las nuevas. Las que
       // ya tienes se saltan pero se sigue la cadena (split-cours, huecos, etc.).
-      let cur   = s.mal_id;
-      let depth = 0;
+      let cur     = s.mal_id;
+      let depth   = 0;
+      let tail    = s.mal_id;   // (B) última temporada de la cadena
+      let tailDet = null;       // su detalle MAL, si se llegó a consultar
       const visto = new Set();
       while (cur && depth < 20 && !visto.has(cur)) {
         visto.add(cur);
+        tail = cur; tailDet = null;
         if (cancelado) return;
         if (!owned.has(cur) && !ignorados.has(cur)) {
           const det = await jikanAnime(cur);
           await delay();
-          if (det) { candidatos.push({ serie: s, anime: det }); encontrado = true; }
+          if (det) { candidatos.push({ serie: s, anime: det }); encontrado = true; tailDet = det; }
         }
         cur = await sequelDe(cur);
         depth++;
       }
+
+      // (B) Marca de emisión de la franquicia = estado de su última temporada.
+      try {
+        const ult = tailDet || await jikanAnime(tail);
+        if (!tailDet) await delay();
+        if (ult) await api.setEmisionFranquicia(s.id, codigoEmision(ult.status));
+      } catch (_) { /* la marca de emisión es best-effort */ }
     } catch (_) { error = true; }
 
     // Tras revisar sin error: si hay temporadas pendientes se quita la marca para

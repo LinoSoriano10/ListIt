@@ -51,6 +51,7 @@ db.prepare(`
     estado_emision:    "TEXT DEFAULT ''",
     estudio:           "TEXT DEFAULT ''",
     duracion_ep:       "TEXT DEFAULT ''",
+    emision_franquicia: "TEXT DEFAULT ''",
   };
   for (const [name, type] of Object.entries(malCols)) {
     if (!cols.includes(name)) {
@@ -434,11 +435,25 @@ function actualizarEpEntrega(id, delta) {
   if (!row) return;
   const max    = row.episodios_totales > 0 ? row.episodios_totales : Infinity;
   const newVal = Math.min(max, Math.max(0, (row.episodio_actual || 0) + delta));
+  // Auto-marca la temporada como vista al completar todos sus episodios y la
+  // desmarca al bajar de ese tope (solo si hay un total definido).
+  if (row.episodios_totales > 0) {
+    return db.prepare('UPDATE entregas SET episodio_actual = ?, visto = ? WHERE id = ?')
+      .run(newVal, newVal >= row.episodios_totales ? 1 : 0, id);
+  }
   return db.prepare('UPDATE entregas SET episodio_actual = ? WHERE id = ?').run(newVal, id);
 }
 
 function setEpTotalEntrega(id, total) {
-  return db.prepare('UPDATE entregas SET episodios_totales = ? WHERE id = ?').run(Math.max(0, total), id);
+  const t   = Math.max(0, total);
+  const row = db.prepare('SELECT episodio_actual FROM entregas WHERE id = ?').get(id);
+  const ep  = row ? (row.episodio_actual || 0) : 0;
+  // Re-evalúa el tick al cambiar el total: visto si ya se alcanzó (solo si total > 0).
+  if (t > 0) {
+    return db.prepare('UPDATE entregas SET episodios_totales = ?, visto = ? WHERE id = ?')
+      .run(t, ep >= t ? 1 : 0, id);
+  }
+  return db.prepare('UPDATE entregas SET episodios_totales = ? WHERE id = ?').run(t, id);
 }
 
 // A.3: si TODAS las entregas de un contenido están completas (vistas o con todos
@@ -847,6 +862,11 @@ function setSetting(key, value) {
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(value ?? ''));
 }
 
+// (B) Marca de emisión de la franquicia: '', 'en_emision', 'proximamente' o 'finalizado'.
+function setEmisionFranquicia(id, estado) {
+  return db.prepare('UPDATE contenido SET emision_franquicia = ? WHERE id = ?').run(estado || '', id);
+}
+
 // Todas las URLs de imagen en uso (para limpiar huérfanos del caché).
 function obtenerImagenesUsadas() {
   return db.prepare("SELECT imagen FROM contenido WHERE imagen IS NOT NULL AND imagen != ''").all().map(r => r.imagen);
@@ -877,6 +897,7 @@ module.exports = {
   setEpTotalEntrega,
   autocompletarSiProcede,
   revisarCompletadoTrasAnadir,
+  setEmisionFranquicia,
   eliminarEntrega,
   estadisticasGenerales,
   actividadPorMes,

@@ -19,6 +19,13 @@ export function cerrarDetalle() {
   marcarCardSeleccionada(null);
 }
 
+// (B) Etiqueta y color de la marca de emisión de la franquicia.
+const EMISION_FRANQ = {
+  en_emision:   { label: 'En emisión',   color: '#3fb950' },
+  proximamente: { label: 'Próximamente', color: '#58a6ff' },
+  finalizado:   { label: 'Finalizado',   color: 'var(--muted)' },
+};
+
 function makeEditable(span, cssClass, onSave) {
   const oldText = span.textContent;
   const input   = document.createElement('input');
@@ -304,12 +311,23 @@ export async function mostrarDetalle(id) {
   const epTotal  = item.episodios_totales || 0;
   const metaParts = [];
   if (tieneEpisodios && epTotal > 0) metaParts.push(`${epTotal} ep.`);
+  if (item.score_mal != null) metaParts.push(`★ ${item.score_mal}`);
+  if (item.mal_rank != null)  metaParts.push(`#${item.mal_rank}`);
   if (item.fecha_estreno) {
     metaParts.push(item.fecha_fin_emision && item.fecha_fin_emision !== item.fecha_estreno
       ? `${escapeHtml(item.fecha_estreno)} → ${escapeHtml(item.fecha_fin_emision)}`
       : escapeHtml(item.fecha_estreno));
   }
-  if (item.estado_emision) metaParts.push(escapeHtml(item.estado_emision));
+  if (item.estudio)     metaParts.push(escapeHtml(item.estudio));
+  if (item.duracion_ep) metaParts.push(escapeHtml(item.duracion_ep));
+  // (B) Marca de emisión de la franquicia (informativa): no muestra "Finalizado"
+  // si una temporada sigue en emisión. Cae al estado por temporada si no se calculó.
+  if (item.emision_franquicia && EMISION_FRANQ[item.emision_franquicia]) {
+    const ef = EMISION_FRANQ[item.emision_franquicia];
+    metaParts.push(`<span style="color:${ef.color}">${ef.label}</span>`);
+  } else if (item.estado_emision) {
+    metaParts.push(escapeHtml(item.estado_emision));
+  }
 
   inner.innerHTML = `
     <div class="dh-hero">

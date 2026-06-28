@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatearFechaMAL, traducirEstadoEmision, extraerCamposMAL, tituloMAL } from '../src/js/lib/mal-format.js';
+import { formatearFechaMAL, traducirEstadoEmision, extraerCamposMAL, tituloMAL, codigoEmision } from '../src/js/lib/mal-format.js';
 
 describe('formatearFechaMAL', () => {
   it('ISO válida → "Mmm AAAA" (UTC)', () => {
@@ -64,5 +64,17 @@ describe('tituloMAL', () => {
   });
   it('sin títulos → ""', () => {
     expect(tituloMAL({})).toBe('');
+  });
+});
+
+describe('codigoEmision', () => {
+  it('mapea los estados de Jikan a códigos de franquicia', () => {
+    expect(codigoEmision('Currently Airing')).toBe('en_emision');
+    expect(codigoEmision('Not yet aired')).toBe('proximamente');
+    expect(codigoEmision('Finished Airing')).toBe('finalizado');
+  });
+  it('cualquier otro/indefinido → finalizado', () => {
+    expect(codigoEmision('')).toBe('finalizado');
+    expect(codigoEmision(undefined)).toBe('finalizado');
   });
 });

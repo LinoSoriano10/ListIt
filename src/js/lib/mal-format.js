@@ -25,6 +25,14 @@ export function tituloMAL(anime) {
   return anime.title_english || anime.title || '';
 }
 
+// Código de estado de emisión para la marca de franquicia (B): en emisión,
+// próximamente (anunciada, sin emitir) o finalizado.
+export function codigoEmision(status) {
+  if (status === 'Currently Airing') return 'en_emision';
+  if (status === 'Not yet aired')    return 'proximamente';
+  return 'finalizado';
+}
+
 /**
  * Extrae los campos de C.3 desde una respuesta de la API Jikan v4.
  */
