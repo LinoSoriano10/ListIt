@@ -808,6 +808,22 @@ textarea { resize: vertical; min-height: 72px; }
 .entrega-item:hover { background: var(--s3); }
 .entrega-item:hover .entrega-del { opacity: 1; }
 
+/* Camino B: temporada anunciada pero aún no emitida (no cuenta, solo informa) */
+.entrega-proxima .entrega-titulo { color: var(--muted); }
+.entrega-proxima-badge,
+.mal-result-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: #58a6ff;
+  border: 1px solid #58a6ff66;
+  border-radius: 10px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mal-result-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; vertical-align: middle; }
+
 .entrega-check {
   width: 20px; height: 20px;
   border-radius: 50%;

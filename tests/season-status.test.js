@@ -43,3 +43,36 @@ describe('todasCompletas', () => {
     expect(todasCompletas([{ visto: 0, episodio_actual: 13, episodios_totales: 12 }])).toBe(true);
   });
 });
+
+// Camino B: las temporadas anunciadas pero aún no emitidas (no_emitido) son
+// visibles pero NO cuentan para la completitud.
+describe('todasCompletas con temporadas no emitidas', () => {
+  const proxima = { visto: 0, episodio_actual: 0, episodios_totales: 0, no_emitido: 1 };
+
+  it('una temporada no emitida NO bloquea el completado', () => {
+    expect(todasCompletas([
+      { visto: 1 },
+      { visto: 0, episodio_actual: 12, episodios_totales: 12 },
+      proxima,
+    ])).toBe(true);
+  });
+
+  it('si SOLO hay temporadas no emitidas → no completa (nada ha salido aún)', () => {
+    expect(todasCompletas([proxima])).toBe(false);
+    expect(todasCompletas([proxima, { ...proxima }])).toBe(false);
+  });
+
+  it('una temporada emitida a medias sigue bloqueando aunque haya una no emitida', () => {
+    expect(todasCompletas([
+      { visto: 0, episodio_actual: 3, episodios_totales: 12 },
+      proxima,
+    ])).toBe(false);
+  });
+
+  it('la no emitida se ignora aunque llegara marcada vista por error', () => {
+    expect(todasCompletas([
+      { visto: 0, episodio_actual: 3, episodios_totales: 12 },
+      { visto: 1, episodio_actual: 0, episodios_totales: 0, no_emitido: 1 },
+    ])).toBe(false);
+  });
+});

@@ -262,6 +262,38 @@ ipcMain.handle('eliminar-entrega', (_, id) => {
   return { ...result, autocompletado: e ? aplicarAutocompletado(e.contenido_id) : false };
 });
 
+// ── Camino B: temporadas anunciadas pero no emitidas ─────────────────────────────
+
+ipcMain.handle('get-entregas-no-emitidas-candidatas', () => {
+  return db.obtenerEntregasNoEmitidasCandidatas();
+});
+
+// Etiquetado one-shot: marca como no emitidas las entregas que el renderer ya
+// confirmó contra MAL (estado "Not yet aired") y, como ahora dejan de bloquear,
+// recomputa el completado de cada serie afectada. Devuelve cuántas se marcaron y
+// cuántas entradas pasaron a 'completado' al desbloquearse.
+ipcMain.handle('marcar-entregas-no-emitidas', (_, ids = []) => {
+  const series = new Set();
+  for (const id of ids) {
+    const contenidoId = db.setNoEmitidoEntrega(id, 1);
+    if (contenidoId) series.add(contenidoId);
+  }
+  let completadas = 0;
+  for (const contenidoId of series) {
+    if (aplicarAutocompletado(contenidoId)) completadas++;
+  }
+  return { marcadas: ids.length, completadas };
+});
+
+// Transición: una temporada no emitida empezó a emitir. Quita la marca, fija el
+// total de episodios si MAL ya lo da, y si la entrada estaba 'completado' la baja
+// a 'pendiente' (ahora sí hay contenido nuevo que ver).
+ipcMain.handle('marcar-entrega-emitida', (_, { id, episodios_totales }) => {
+  const contenidoId = db.marcarEntregaEmitida(id, episodios_totales || 0);
+  const reanudado = contenidoId ? aplicarReanudacion(contenidoId) : false;
+  return { contenidoId, reanudado };
+});
+
 // ── Nombres alternativos ──────────────────────────────────────────────────────
 
 ipcMain.handle('get-nombres', (_, contenidoId) => {

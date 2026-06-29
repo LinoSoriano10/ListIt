@@ -86,6 +86,12 @@ db.prepare(`
   if (!cols.includes('mal_id')) {
     db.prepare('ALTER TABLE entregas ADD COLUMN mal_id INTEGER').run();
   }
+  // Camino B: marca de temporada anunciada pero aún no emitida. Una entrega con
+  // no_emitido = 1 es visible en la ficha pero NO cuenta para completitud,
+  // progreso ni "siguiente a ver". Se desmarca el día que emite.
+  if (!cols.includes('no_emitido')) {
+    db.prepare('ALTER TABLE entregas ADD COLUMN no_emitido INTEGER DEFAULT 0').run();
+  }
 }
 
 // Migración: si numero era INTEGER en una instalación anterior, convertir a TEXT
@@ -194,9 +200,9 @@ function obtenerContenido({ estado, tag, orden } = {}) {
     // Cálculo de % completado como expresión en el ORDER BY:
     completado: `(
       CASE
-        WHEN (SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id) > 0
-          THEN CAST((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id) AS REAL)
-               / (SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id)
+        WHEN (SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0) > 0
+          THEN CAST((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0) AS REAL)
+               / (SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0)
         WHEN c.episodios_totales > 0
           THEN CAST(c.episodio_actual AS REAL) / c.episodios_totales
         ELSE 0
@@ -207,31 +213,31 @@ function obtenerContenido({ estado, tag, orden } = {}) {
 
   const rows = db.prepare(`
     SELECT c.*,
-      COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id), 0)   AS total_entregas,
-      COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id), 0) AS entregas_vistas,
+      COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0), 0)   AS total_entregas,
+      COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0), 0) AS entregas_vistas,
       COALESCE((
         SELECT e.id FROM entregas e
-        WHERE e.contenido_id = c.id
+        WHERE e.contenido_id = c.id AND e.no_emitido = 0
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
         ORDER BY e.posicion ASC, e.id ASC LIMIT 1
       ), 0) AS entrega_en_curso_id,
       (SELECT e.numero FROM entregas e
-        WHERE e.contenido_id = c.id
+        WHERE e.contenido_id = c.id AND e.no_emitido = 0
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
         ORDER BY e.posicion ASC, e.id ASC LIMIT 1) AS entrega_en_curso_numero,
       COALESCE((SELECT e.episodio_actual FROM entregas e
-        WHERE e.contenido_id = c.id
+        WHERE e.contenido_id = c.id AND e.no_emitido = 0
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
         ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_actual,
       COALESCE((SELECT e.episodios_totales FROM entregas e
-        WHERE e.contenido_id = c.id
+        WHERE e.contenido_id = c.id AND e.no_emitido = 0
           AND (e.episodios_totales = 0 OR e.episodio_actual < e.episodios_totales)
         ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS entrega_en_curso_ep_total,
       COALESCE((SELECT e.episodio_actual FROM entregas e
-        WHERE e.contenido_id = c.id
+        WHERE e.contenido_id = c.id AND e.no_emitido = 0
         ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS primera_ep_actual,
       COALESCE((SELECT e.episodios_totales FROM entregas e
-        WHERE e.contenido_id = c.id
+        WHERE e.contenido_id = c.id AND e.no_emitido = 0
         ORDER BY e.posicion ASC, e.id ASC LIMIT 1), 0) AS primera_ep_total,
       (SELECT GROUP_CONCAT(t.nombre, ',')
          FROM tags t JOIN contenido_tags ct ON ct.tag_id = t.id
@@ -462,7 +468,7 @@ function setEpTotalEntrega(id, total) {
 // MAL), no personales. Devuelve { antes } o null. Las entradas sin entregas
 // (p. ej. películas) no se autocompletan aquí.
 function autocompletarSiProcede(contenidoId) {
-  const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales FROM entregas WHERE contenido_id = ?').all(contenidoId);
+  const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales, no_emitido FROM entregas WHERE contenido_id = ?').all(contenidoId);
   if (!todasCompletas(entregas)) return null;
   const c = obtenerPorId(contenidoId);
   if (!c || c.estado === 'completado') return null;
@@ -475,18 +481,18 @@ function autocompletarSiProcede(contenidoId) {
 function revisarCompletadoTrasAnadir(contenidoId) {
   const c = obtenerPorId(contenidoId);
   if (!c || c.estado !== 'completado') return null;
-  const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales FROM entregas WHERE contenido_id = ?').all(contenidoId);
+  const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales, no_emitido FROM entregas WHERE contenido_id = ?').all(contenidoId);
   if (todasCompletas(entregas)) return null;
   db.prepare("UPDATE contenido SET estado = 'pendiente', updated_at = datetime('now','localtime') WHERE id = ?").run(contenidoId);
   return { antes: 'completado' };
 }
 
 // Inserción completa usada por el importador XML y por MAL
-function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, mal_id }) {
+function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, mal_id, no_emitido }) {
   const { maxPos } = db.prepare('SELECT COALESCE(MAX(posicion), 0) AS maxPos FROM entregas WHERE contenido_id = ?').get(contenido_id);
   return db.prepare(`
-    INSERT INTO entregas (contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, posicion, mal_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO entregas (contenido_id, numero, titulo, visto, episodio_actual, episodios_totales, posicion, mal_id, no_emitido)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     contenido_id,
     numero            != null ? String(numero) : '1',
@@ -496,11 +502,55 @@ function guardarEntregaCompleta({ contenido_id, numero, titulo, visto, episodio_
     episodios_totales || 0,
     maxPos + 1,
     mal_id            != null ? mal_id : null,
+    no_emitido        ? 1 : 0,
   );
 }
 
 function eliminarEntrega(id) {
   return db.prepare('DELETE FROM entregas WHERE id = ?').run(id);
+}
+
+// ── Camino B: temporadas anunciadas pero no emitidas ─────────────────────────────
+
+// Pone o quita la marca `no_emitido` de una entrega. Devuelve el contenido_id
+// afectado (para recomputar su estado tras el cambio) o null si no existe.
+function setNoEmitidoEntrega(id, flag) {
+  const e = db.prepare('SELECT contenido_id FROM entregas WHERE id = ?').get(id);
+  if (!e) return null;
+  db.prepare('UPDATE entregas SET no_emitido = ? WHERE id = ?').run(flag ? 1 : 0, id);
+  return e.contenido_id;
+}
+
+// Cuando una temporada no emitida empieza a emitir: quita la marca y, si MAL ya
+// reporta el total de episodios, lo fija (solo si sube, nunca reduce el progreso).
+function marcarEntregaEmitida(id, episodiosTotales) {
+  const e = db.prepare('SELECT contenido_id, episodios_totales FROM entregas WHERE id = ?').get(id);
+  if (!e) return null;
+  const subeTotal = episodiosTotales > 0 && episodiosTotales > (e.episodios_totales || 0);
+  if (subeTotal) {
+    db.prepare('UPDATE entregas SET no_emitido = 0, episodios_totales = ? WHERE id = ?').run(episodiosTotales, id);
+  } else {
+    db.prepare('UPDATE entregas SET no_emitido = 0 WHERE id = ?').run(id);
+  }
+  return e.contenido_id;
+}
+
+// Candidatas a "temporada no emitida" entre los datos ya existentes: entregas
+// vacías (0/0, no vistas) con mal_id, que NO son la temporada raíz de la serie y
+// cuya serie tiene más de una entrega. El renderer confirma cada una contra MAL
+// (estado "Not yet aired") antes de marcarlas, para no etiquetar de más.
+function obtenerEntregasNoEmitidasCandidatas() {
+  return db.prepare(`
+    SELECT e.id, e.contenido_id, e.mal_id, e.titulo,
+           (SELECT titulo FROM contenido c WHERE c.id = e.contenido_id) AS serie_titulo
+    FROM entregas e
+    JOIN contenido c ON c.id = e.contenido_id
+    WHERE e.no_emitido = 0
+      AND e.episodios_totales = 0 AND e.episodio_actual = 0 AND e.visto = 0
+      AND e.mal_id IS NOT NULL
+      AND (c.mal_id IS NULL OR e.mal_id != c.mal_id)
+      AND (SELECT COUNT(*) FROM entregas e2 WHERE e2.contenido_id = e.contenido_id) > 1
+  `).all();
 }
 
 // ── Nombres alternativos ───────────────────────────────────────────────────────
@@ -545,9 +595,9 @@ function estadisticasGenerales() {
   const items = db.prepare(`
     SELECT c.episodios_totales, c.estado, c.id, c.titulo, c.imagen,
       c.episodio_actual,
-      COALESCE((SELECT SUM(e.episodios_totales) FROM entregas e WHERE e.contenido_id = c.id), 0) AS ep_entregas,
-      COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id), 0) AS total_entregas,
-      COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id), 0) AS entregas_vistas,
+      COALESCE((SELECT SUM(e.episodios_totales) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0), 0) AS ep_entregas,
+      COALESCE((SELECT COUNT(*) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0), 0) AS total_entregas,
+      COALESCE((SELECT SUM(e.visto) FROM entregas e WHERE e.contenido_id = c.id AND e.no_emitido = 0), 0) AS entregas_vistas,
       c.tipo
     FROM contenido c
   `).all();
@@ -898,6 +948,9 @@ module.exports = {
   autocompletarSiProcede,
   revisarCompletadoTrasAnadir,
   setEmisionFranquicia,
+  setNoEmitidoEntrega,
+  marcarEntregaEmitida,
+  obtenerEntregasNoEmitidasCandidatas,
   eliminarEntrega,
   estadisticasGenerales,
   actividadPorMes,

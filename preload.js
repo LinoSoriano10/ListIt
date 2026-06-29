@@ -36,6 +36,12 @@ contextBridge.exposeInMainWorld('api', {
   eliminarEntrega:       (id)          => ipcRenderer.invoke('eliminar-entrega', id),
   guardarEntregaCompleta:(e)           => ipcRenderer.invoke('guardar-entrega-completa', e),
 
+  // Camino B: temporadas anunciadas pero aún no emitidas
+  getEntregasNoEmitidasCandidatas: ()    => ipcRenderer.invoke('get-entregas-no-emitidas-candidatas'),
+  marcarEntregasNoEmitidas:        (ids) => ipcRenderer.invoke('marcar-entregas-no-emitidas', ids),
+  marcarEntregaEmitida: (id, episodios_totales) =>
+    ipcRenderer.invoke('marcar-entrega-emitida', { id, episodios_totales }),
+
   // Tags
   getTags:          ()           => ipcRenderer.invoke('get-tags'),
   crearTag:         (nombre)     => ipcRenderer.invoke('crear-tag', nombre),

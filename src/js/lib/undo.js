@@ -74,6 +74,8 @@ export async function restaurarEntrada(snapshot) {
       visto: e.visto,
       episodio_actual: e.episodio_actual,
       episodios_totales: e.episodios_totales,
+      mal_id: e.mal_id,
+      no_emitido: e.no_emitido,
     });
   }
   return newId;

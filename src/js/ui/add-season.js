@@ -44,8 +44,51 @@ async function sequelDe(malId) {
 
 export async function abrirAddSeason(serieIdPreseleccionada = null) {
   scopeSerieId = serieIdPreseleccionada;
+  cancelado = false;
   document.getElementById('modalAddSeason').style.display = 'flex';
+  await etiquetarNoEmitidasUnaVez();
   await escanear();
+}
+
+// Etiquetado one-shot (Camino B). Las temporadas anunciadas que ya tenías
+// añadidas como entregas vacías bloqueaban el "completado". Una sola vez, se
+// confirman contra MAL y las que aún no han emitido se marcan `no_emitido` —
+// NO se borra nada. Al desbloquearse, las entradas que solo esperaban esa
+// temporada pasan a 'completado'. Si se cierra el modal a media revisión, no se
+// marca el flag y se reintenta en la próxima apertura.
+async function etiquetarNoEmitidasUnaVez() {
+  if (await api.getSetting('cleanup_proximamente_v1')) return;
+
+  let candidatas = [];
+  try { candidatas = await api.getEntregasNoEmitidasCandidatas(); } catch (_) { return; }
+  if (candidatas.length === 0) {
+    await api.setSetting('cleanup_proximamente_v1', '1');
+    return;
+  }
+
+  setProgress(0);
+  const confirmadas = [];
+  for (let i = 0; i < candidatas.length; i++) {
+    if (cancelado) return;
+    setProgress(Math.round((i / candidatas.length) * 100));
+    setStatus(`Revisando temporadas anunciadas ${i + 1}/${candidatas.length}…`);
+    try {
+      const det = await jikanAnime(candidatas[i].mal_id);
+      await delay();
+      if (det && codigoEmision(det.status) === 'proximamente') confirmadas.push(candidatas[i].id);
+    } catch (_) { /* sin red para esta: se deja como estaba */ }
+  }
+
+  if (confirmadas.length > 0) {
+    const r = await api.marcarEntregasNoEmitidas(confirmadas);
+    const n = r?.marcadas    || confirmadas.length;
+    const m = r?.completadas || 0;
+    toast.success(`${n} temporada${n !== 1 ? 's' : ''} marcada${n !== 1 ? 's' : ''} como próxima${n !== 1 ? 's' : ''}` +
+      (m > 0 ? ` · ${m} entrada${m !== 1 ? 's' : ''} completada${m !== 1 ? 's' : ''}` : ''));
+    if (m > 0) await cargarContenido(document.getElementById('searchBar')?.value || '');
+  }
+  await api.setSetting('cleanup_proximamente_v1', '1');
+  setProgress(null);
 }
 
 export function cerrarAddSeason() {
@@ -65,6 +108,7 @@ function setProgress(pct) {
 
 async function escanear(forzar = false) {
   cancelado = false;
+  let huboCambioEstado = false;   // (Camino B) alguna temporada pasó de anunciada a emitida
   document.getElementById('addSeasonResults').innerHTML = '';
   document.getElementById('btnAddSeasonRescan').style.display = 'none';
 
@@ -112,13 +156,28 @@ async function escanear(forzar = false) {
     setProgress(Math.round((i / aRevisar.length) * 100));
     setStatus(`Revisando ${i + 1}/${aRevisar.length}: ${s.titulo}`);
 
-    let encontrado = false;
+    let accionable = false;   // (Camino B) candidato que YA emite (no solo anunciado)
     let error      = false;
     try {
       const entregas = await api.getEntregas(s.id);
       // El propio contenido es su 1ª temporada → siempre cuenta como poseído (si
       // no, una entrada de 1 temporada con MAL se ofrecería a sí misma como T2).
       const owned    = new Set([s.mal_id, ...entregas.map(e => e.mal_id).filter(Boolean)]);
+
+      // (Camino B) Transición: ¿alguna temporada marcada "no emitida" ya empezó a
+      // emitir? Se le quita la marca, pasa a contar y la entrada vuelve de
+      // 'completado' a 'pendiente' (ahora sí hay algo nuevo que ver).
+      for (const e of entregas) {
+        if (cancelado) return;
+        if (e.no_emitido && e.mal_id) {
+          const det = await jikanAnime(e.mal_id);
+          await delay();
+          if (det && codigoEmision(det.status) !== 'proximamente') {
+            await api.marcarEntregaEmitida(e.id, det.episodes || 0);
+            huboCambioEstado = true;
+          }
+        }
+      }
 
       // Recorre TODA la cadena de la franquicia desde su raíz (mal_id del
       // contenido = 1ª temporada) y ofrece cualquier temporada que no tengas y no
@@ -136,7 +195,11 @@ async function escanear(forzar = false) {
         if (!owned.has(cur) && !ignorados.has(cur)) {
           const det = await jikanAnime(cur);
           await delay();
-          if (det) { candidatos.push({ serie: s, anime: det }); encontrado = true; tailDet = det; }
+          if (det) {
+            candidatos.push({ serie: s, anime: det });
+            tailDet = det;
+            if (codigoEmision(det.status) !== 'proximamente') accionable = true;
+          }
         }
         cur = await sequelDe(cur);
         depth++;
@@ -150,11 +213,12 @@ async function escanear(forzar = false) {
       } catch (_) { /* la marca de emisión es best-effort */ }
     } catch (_) { error = true; }
 
-    // Tras revisar sin error: si hay temporadas pendientes se quita la marca para
-    // re-revisar siempre (hasta añadirlas/ignorarlas); si está limpia, se marca
-    // comprobada y no se vuelve a consultar en una semana.
+    // Tras revisar sin error: si hay una temporada que YA emite se quita la marca
+    // para re-revisar siempre (hasta añadirla/ignorarla); si solo hay anunciadas
+    // (próximamente) o está limpia, se marca comprobada y se re-consulta dentro de
+    // una semana (suficiente para detectar que una anunciada empiece a emitir).
     if (!error) {
-      if (encontrado) delete mapa[s.id];
+      if (accionable) delete mapa[s.id];
       else mapa[s.id] = new Date(ahora).toISOString();
     }
   }
@@ -165,6 +229,12 @@ async function escanear(forzar = false) {
 
   setProgress(null);
   document.getElementById('btnAddSeasonRescan').style.display = '';
+  // (Camino B) Si alguna temporada empezó a emitir, refrescar el grid/ficha para
+  // reflejar el cambio de 'completado' → 'pendiente'.
+  if (huboCambioEstado) {
+    await cargarContenido(document.getElementById('searchBar')?.value || '');
+    if (state.idActual) mostrarDetalle(state.idActual);
+  }
   renderCandidatos(candidatos, omitidas);
 }
 
@@ -180,15 +250,19 @@ function renderCandidatos(candidatos, omitidas = 0) {
   setStatus(`${n} nueva${n !== 1 ? 's' : ''} temporada${n !== 1 ? 's' : ''} detectada${n !== 1 ? 's' : ''}${extra}:`);
 
   results.innerHTML = candidatos.map((c, idx) => {
-    const a    = c.anime;
-    const img  = a.images?.jpg?.image_url || '';
-    const meta = [a.type, a.year, a.episodes ? a.episodes + ' ep.' : ''].filter(Boolean).join(' · ');
+    const a       = c.anime;
+    const img     = a.images?.jpg?.image_url || '';
+    const meta    = [a.type, a.year, a.episodes ? a.episodes + ' ep.' : ''].filter(Boolean).join(' · ');
+    // Camino B: avisar de que esta temporada aún no ha emitido. Al añadirla entra
+    // como "Próximamente" y no bloquea el "completado".
+    const proxima = codigoEmision(a.status) === 'proximamente';
+    const badge   = proxima ? ' <span class="mal-result-badge">Próximamente</span>' : '';
     return `
       <div class="mal-result-item" data-idx="${idx}">
         <img class="mal-result-img" src="${escapeHtml(img)}" alt="">
         <div class="mal-result-info">
           <div class="mal-result-title mq"><span class="mq__i">${escapeHtml(tituloMAL(a))}</span></div>
-          <div class="mal-result-meta">${escapeHtml(c.serie.titulo)} · ${escapeHtml(meta)}</div>
+          <div class="mal-result-meta">${escapeHtml(c.serie.titulo)} · ${escapeHtml(meta)}${badge}</div>
         </div>
         <button class="btn-secondary" data-act="ignorar" data-idx="${idx}" style="margin-left:auto" title="Ya lo viste o es un trozo de otra temporada">Ignorar</button>
         <button class="btn-primary"   data-act="add"     data-idx="${idx}">Añadir</button>
@@ -275,6 +349,9 @@ async function anadirTemporada({ serie, anime }) {
   if (entregas.length === 1 && !entregas[0].titulo) {
     await api.renombrarEntrega(entregas[0].id, serie.titulo);
   }
+  // Camino B: una temporada anunciada pero aún no emitida entra marcada como
+  // `no_emitido`: visible en la ficha pero sin contar para el "completado".
+  const noEmitido = codigoEmision(anime.status) === 'proximamente';
   await api.guardarEntregaCompleta({
     contenido_id:      serie.id,
     numero:            `T${entregas.length + 1}`,
@@ -283,8 +360,9 @@ async function anadirTemporada({ serie, anime }) {
     episodio_actual:   0,
     visto:             0,
     mal_id:            anime.mal_id || null,
+    no_emitido:        noEmitido ? 1 : 0,
   });
-  toast.success(`Añadida a «${serie.titulo}»: ${tituloMAL(anime)}`);
+  toast.success(`Añadida a «${serie.titulo}»: ${tituloMAL(anime)}${noEmitido ? ' (próximamente)' : ''}`);
   await cargarContenido(document.getElementById('searchBar')?.value || '');
   if (state.idActual === serie.id) mostrarDetalle(serie.id);
 }

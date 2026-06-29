@@ -76,9 +76,12 @@ function makeEditableNumber(span, cssClass, onSave) {
 async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloContenido = '') {
   const entregas = await api.getEntregas(contenidoId);
   const total    = entregas.length;
-  const vistas   = entregas.filter(e => e.visto).length;
-  const pct      = total > 0 ? Math.round(vistas / total * 100) : 0;
-  const conEp    = tipo !== 'pelicula';
+  // Camino B: las temporadas no emitidas se ven, pero no cuentan en la fracción
+  // ni en la barra de progreso (igual que en la completitud y el grid).
+  const contables = entregas.filter(e => !e.no_emitido);
+  const vistas    = contables.filter(e => e.visto).length;
+  const pct       = contables.length > 0 ? Math.round(vistas / contables.length * 100) : 0;
+  const conEp     = tipo !== 'pelicula';
 
   const globalEl = document.getElementById('dhEpGlobal');
   if (globalEl) globalEl.style.display = total > 0 ? 'none' : '';
@@ -93,13 +96,14 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
     }
     await cargarEntregas(contenidoId, container, tipo, tituloContenido);
     const fresh = await api.getEntregas(contenidoId);
+    const freshContables = fresh.filter(e => !e.no_emitido);
     const idx = state.todosLosItems.findIndex(i => i.id === contenidoId);
     if (idx !== -1) {
-      state.todosLosItems[idx].total_entregas  = fresh.length;
-      state.todosLosItems[idx].entregas_vistas = fresh.filter(e => e.visto).length;
-      if (fresh.length === 1) {
-        state.todosLosItems[idx].primera_ep_actual = fresh[0].episodio_actual  || 0;
-        state.todosLosItems[idx].primera_ep_total  = fresh[0].episodios_totales || 0;
+      state.todosLosItems[idx].total_entregas  = freshContables.length;
+      state.todosLosItems[idx].entregas_vistas = freshContables.filter(e => e.visto).length;
+      if (freshContables.length === 1) {
+        state.todosLosItems[idx].primera_ep_actual = freshContables[0].episodio_actual  || 0;
+        state.todosLosItems[idx].primera_ep_total  = freshContables[0].episodios_totales || 0;
       }
       actualizarProgresoCard(contenidoId);
     }
@@ -107,7 +111,9 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
   };
 
   // ── Temporada única → contador simple, sin envoltorio de temporada (decisión 2) ──
-  if (total === 1 && conEp) {
+  // (si la única entrega es una temporada no emitida, cae al modo lista para que se
+  //  pinte con su insignia "Próximamente" en vez de un contador de episodios).
+  if (total === 1 && conEp && !entregas[0].no_emitido) {
     const ent  = entregas[0];
     const epA  = ent.episodio_actual  || 0;
     const epT  = ent.episodios_totales || 0;
@@ -159,6 +165,17 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
   }
 
   const filaEntrega = (e) => {
+    // Camino B: temporada anunciada pero aún no emitida → fila informativa, sin
+    // visto ni contador de episodios (no existe nada que marcar todavía).
+    if (e.no_emitido) {
+      return `
+        <div class="entrega-item entrega-proxima" data-id="${e.id}">
+          <span class="entrega-num"   data-id="${e.id}" title="Doble clic para editar">${escapeHtml(e.numero)}</span>
+          <span class="entrega-titulo mq" data-id="${e.id}" title="Doble clic para renombrar"><span class="mq__i">${escapeHtml(e.titulo || '')}</span></span>
+          <span class="entrega-proxima-badge">Próximamente</span>
+          <button class="entrega-del" data-id="${e.id}" title="Eliminar">×</button>
+        </div>`;
+    }
     const epA = e.episodio_actual  || 0;
     const epT = e.episodios_totales || 0;
     const epDisabledMas   = epT > 0 && epA >= epT ? 'disabled' : '';
@@ -185,7 +202,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
     <div class="dh-entregas">
       <div class="dh-entregas-header">
         <span class="dh-entregas-label">Entregas / Temporadas</span>
-        ${total > 0 ? `<span class="dh-ep-frac">${vistas} / ${total}</span>` : ''}
+        ${contables.length > 0 ? `<span class="dh-ep-frac">${vistas} / ${contables.length}</span>` : ''}
       </div>
       ${total > 0 ? `
         <div class="dh-ep-bar" style="margin-bottom:10px">
