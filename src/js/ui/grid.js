@@ -92,7 +92,7 @@ export function renderGrid(items) {
 
         if (tieneEntregaEnCurso) {
           const r = await api.epEntregaDelta(item.entrega_en_curso_id, 1);
-          if (r?.autocompletado) {
+          if (r?.cambioEstado) {
             await cargarContenido(document.getElementById('searchBar')?.value || '');
             return;
           }

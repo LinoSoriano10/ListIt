@@ -2,6 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const { app } = require('electron');
 const { todasCompletas } = require('./lib/season-status');
+const { decidirTransicionPorProgreso } = require('./lib/estado-transiciones');
 
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
 const db = new Database(dbPath);
@@ -476,6 +477,22 @@ function autocompletarSiProcede(contenidoId) {
   return { antes: c.estado };
 }
 
+// Transición automática por progreso directo del usuario (tick de temporada o
+// +/- episodios): a diferencia de autocompletarSiProcede (que solo avanza a
+// completado), esta también retrocede -- si una entrada completada deja de
+// estarlo, o si una pendiente/en_pausa recibe progreso sin llegar a completarse,
+// pasa a 'viendo'. La decisión es pura (ver lib/estado-transiciones.js); aquí solo
+// se leen las entregas y se aplica. Devuelve { antes, ahora } o null si no cambia.
+function actualizarEstadoPorProgreso(contenidoId) {
+  const c = obtenerPorId(contenidoId);
+  if (!c) return null;
+  const entregas = db.prepare('SELECT visto, episodio_actual, episodios_totales, no_emitido FROM entregas WHERE contenido_id = ?').all(contenidoId);
+  const t = decidirTransicionPorProgreso(c.estado, todasCompletas(entregas));
+  if (!t) return null;
+  db.prepare("UPDATE contenido SET estado = ?, updated_at = datetime('now','localtime') WHERE id = ?").run(t.ahora, contenidoId);
+  return t;
+}
+
 // Inverso: si se añade una temporada incompleta a una entrada 'completado', deja
 // de estar completa y vuelve a 'pendiente'. Devuelve { antes } o null.
 function revisarCompletadoTrasAnadir(contenidoId) {
@@ -946,6 +963,7 @@ module.exports = {
   actualizarEpEntrega,
   setEpTotalEntrega,
   autocompletarSiProcede,
+  actualizarEstadoPorProgreso,
   revisarCompletadoTrasAnadir,
   setEmisionFranquicia,
   setNoEmitidoEntrega,

@@ -217,6 +217,15 @@ function aplicarAutocompletado(contenidoId) {
   return !!auto;
 }
 
+// B: transición automática de estado al tocar progreso directo (tick de
+// temporada o +/- episodios): pendiente/en_pausa → viendo si no se completa,
+// completado → viendo si deja de estarlo, o → completado si se completa.
+function aplicarTransicionProgreso(contenidoId) {
+  const t = db.actualizarEstadoPorProgreso(contenidoId);
+  if (t) db.registrarActividad(contenidoId, 'estado_cambio', `${t.antes} → ${t.ahora}`);
+  return !!t;
+}
+
 // Al añadir una temporada nueva, si la entrada estaba completada, reanudarla.
 function aplicarReanudacion(contenidoId) {
   const r = db.revisarCompletadoTrasAnadir(contenidoId);
@@ -232,8 +241,8 @@ ipcMain.handle('toggle-entrega', (_, id) => {
     db.registrarActividad(entrega.contenido_id, 'entrega_marcada',
       `${entrega.titulo || entrega.numero} → ${estado}`);
   }
-  const autocompletado = entrega ? aplicarAutocompletado(entrega.contenido_id) : false;
-  return { ...result, autocompletado };
+  const cambioEstado = entrega ? aplicarTransicionProgreso(entrega.contenido_id) : false;
+  return { ...result, cambioEstado };
 });
 
 ipcMain.handle('renombrar-entrega', (_, { id, titulo }) => {
@@ -247,7 +256,7 @@ ipcMain.handle('renombrar-numero', (_, { id, numero }) => {
 ipcMain.handle('ep-entrega-delta', (_, { id, delta }) => {
   const result = db.actualizarEpEntrega(id, delta);
   const e = db.obtenerEntregaPorId(id);
-  return { ...result, autocompletado: e ? aplicarAutocompletado(e.contenido_id) : false };
+  return { ...result, cambioEstado: e ? aplicarTransicionProgreso(e.contenido_id) : false };
 });
 
 ipcMain.handle('set-ep-total-entrega', (_, { id, total }) => {

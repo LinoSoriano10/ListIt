@@ -138,11 +138,11 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
     `;
     document.getElementById('dhUnicaMas').addEventListener('click', async () => {
       const r = await api.epEntregaDelta(ent.id, 1);
-      refresh(r?.autocompletado);
+      refresh(r?.cambioEstado);
     });
     document.getElementById('dhUnicaMenos').addEventListener('click', async () => {
       const r = await api.epEntregaDelta(ent.id, -1);
-      refresh(r?.autocompletado);
+      refresh(r?.cambioEstado);
     });
     document.getElementById('dhUnicaTotal').addEventListener('click', () => {
       makeEditableNumber(document.getElementById('dhUnicaTotal'), 'entrega-ep-total-edit', async (totalNuevo) => {
@@ -223,7 +223,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
   container.querySelectorAll('.entrega-check').forEach(btn => {
     btn.addEventListener('click', async () => {
       const r = await api.toggleEntrega(parseInt(btn.dataset.id));
-      refresh(r?.autocompletado);
+      refresh(r?.cambioEstado);
     });
   });
 
@@ -237,7 +237,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
   container.querySelectorAll('.entrega-ep-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const r = await api.epEntregaDelta(parseInt(btn.dataset.id), parseInt(btn.dataset.delta));
-      refresh(r?.autocompletado);
+      refresh(r?.cambioEstado);
     });
   });
 

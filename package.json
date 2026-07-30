@@ -1,6 +1,6 @@
 {
   "name": "listit",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -36,7 +36,14 @@
       "!lista_anime.xml",
       "!dist/**",
       "!scripts/**",
-      "!**/*.md"
+      "!tests/**",
+      "!**/*.md",
+      "!vitest.config.js",
+      "!eslint.config.js",
+      "!.prettierrc",
+      "!src/img/icono.*",
+      "!node_modules/better-sqlite3/{deps,src}/**",
+      "!node_modules/{base64-js,bl,buffer,chownr,decompress-response,deep-extend,detect-libc,end-of-stream,expand-template,fs-constants,github-from-package,ieee754,inherits,ini,mimic-response,minimist,mkdirp-classic,napi-build-utils,node-abi,once,prebuild-install,pump,rc,readable-stream,safe-buffer,semver,simple-concat,simple-get,string_decoder,strip-json-comments,tar-fs,tar-stream,tunnel-agent,util-deprecate,wrappy}/**"
     ],
     "win": {
       "target": "nsis",

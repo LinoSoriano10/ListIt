@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
 import { escapeHtml } from './escape.js';
-import { extraerCamposMAL, tituloMAL } from './mal-format.js';
+import { extraerCamposMAL, tituloMAL, codigoEmision } from './mal-format.js';
 
 /**
  * Refresca una entrada concreta desde la API de Jikan.
@@ -154,6 +154,8 @@ export function aplicarDatosMAL(animes, renderNombresModal) {
       anio:              principal.year || null,
       ...camposMAL,
     };
+    // Camino B: igual que en add-season, una temporada anunciada pero aún sin
+    // emitir nace marcada `no_emitido` (visible pero no cuenta para completitud).
     state.malEntregasPendientes = lista.map((anime, i) => ({
       numero:            `T${i + 1}`,
       titulo:            tituloMAL(anime),
@@ -161,6 +163,7 @@ export function aplicarDatosMAL(animes, renderNombresModal) {
       episodio_actual:   0,
       visto:             0,
       mal_id:            anime.mal_id || null,
+      no_emitido:        codigoEmision(anime.status) === 'proximamente' ? 1 : 0,
     }));
   }
 }

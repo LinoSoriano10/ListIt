@@ -168,6 +168,14 @@ export async function guardarDesdeModal() {
     estado_emision:    mal.estado_emision    ?? (esEdicion ? state.itemEditando.estado_emision    : ''),
   };
 
+  // Alta como completado: el usuario declara que ya lo vio todo, así que el
+  // progreso nace al 100%. Solo al crear — al editar nunca se pisa el progreso
+  // por temporada (un cambio de estado en el modal no debe destruir datos).
+  const completadoAlCrear = state.modoModal === 'nuevo' && item.estado === 'completado';
+  if (completadoAlCrear && item.episodios_totales > 0) {
+    item.episodio_actual = item.episodios_totales;
+  }
+
   let contenidoId;
   if (state.modoModal === 'nuevo') {
     const res = await api.guardarContenido(item);
@@ -192,7 +200,13 @@ export async function guardarDesdeModal() {
   // Crear entregas de temporadas MAL si se seleccionaron varias
   if (state.malEntregasPendientes.length > 0) {
     for (const entrega of state.malEntregasPendientes) {
-      await api.guardarEntregaCompleta({ contenido_id: contenidoId, ...entrega });
+      // Si el alta es "completado", las temporadas emitidas nacen vistas al
+      // 100%; las no emitidas quedan a 0 (no hay nada que ver todavía y así el
+      // detector de "ya emite" sigue funcionando cuando se estrenen).
+      const e = completadoAlCrear && !entrega.no_emitido
+        ? { ...entrega, visto: 1, episodio_actual: entrega.episodios_totales || 0 }
+        : entrega;
+      await api.guardarEntregaCompleta({ contenido_id: contenidoId, ...e });
     }
     state.malEntregasPendientes = [];
   } else if (state.modoModal === 'nuevo') {
