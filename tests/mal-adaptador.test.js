@@ -105,6 +105,13 @@ describe('duracionDesdeSegundos', () => {
   });
   it('episodio único → sin "per ep"', () => {
     expect(duracionDesdeSegundos(7140, 1)).toBe('1 hr 59 min');
+    expect(duracionDesdeSegundos(6420, 1)).toBe('1 hr 47 min'); // Kimi no Na wa.
+  });
+  it('serie en emisión (num_episodes = 0) → sin "per ep", igual que Jikan', () => {
+    // One Piece: el total de episodios aún se desconoce. Contrastado contra la
+    // respuesta real de Jikan, que también devuelve "24 min" a secas.
+    expect(duracionDesdeSegundos(1440, 0)).toBe('24 min');
+    expect(duracionDesdeSegundos(1440, null)).toBe('24 min');
   });
   it('sin duración → cadena vacía', () => {
     expect(duracionDesdeSegundos(0, 12)).toBe('');
@@ -172,6 +179,33 @@ describe('adaptarAnime', () => {
 
   it('tituloMAL() sigue devolviendo el título en inglés', () => {
     expect(tituloMAL(a)).toBe('Steins;Gate');
+  });
+
+  it('en obras de un episodio no repite el estreno como fin de emisión', () => {
+    // La oficial pone end_date = start_date en las películas; Jikan lo deja
+    // vacío. Se omite para no pintar dos veces la misma fecha en la ficha.
+    const peli = adaptarAnime({
+      id: 32281, title: 'Kimi no Na wa.', media_type: 'movie',
+      num_episodes: 1, start_date: '2016-08-26', end_date: '2016-08-26',
+    });
+    expect(peli.aired.from).toBe('2016-08-26');
+    expect(peli.aired.to).toBeNull();
+    expect(extraerCamposMAL(peli).fecha_fin_emision).toBe('');
+  });
+
+  it('conserva el fin de emisión cuando sí aporta información', () => {
+    const serie = adaptarAnime({
+      id: 1, title: 'Serie', media_type: 'tv',
+      num_episodes: 24, start_date: '2011-04-06', end_date: '2011-09-14',
+    });
+    expect(serie.aired.to).toBe('2011-09-14');
+
+    // Un especial de un episodio cuyo fin difiere del estreno sí lo conserva.
+    const especial = adaptarAnime({
+      id: 2, title: 'Especial', media_type: 'special',
+      num_episodes: 1, start_date: '2011-04-06', end_date: '2011-04-20',
+    });
+    expect(especial.aired.to).toBe('2011-04-20');
   });
 
   it('deduce el año desde start_date si no hay start_season', () => {
