@@ -4,9 +4,12 @@
 
 import { api } from '../api.js';
 import { escapeHtml } from '../lib/escape.js';
-import { jikanGet } from '../lib/jikan.js';
+import { mensajeErrorMal } from '../lib/mal-errores.js';
 
-const JIKAN_DELAY_MS = 1200; // ~50 req/min, por debajo del límite de Jikan (60/min)
+// Ritmo entre peticiones. La API oficial aguanta más, pero el proveedor puede
+// caer a la reserva de Jikan (límite 60 req/min) sin avisar, así que se mantiene
+// el ritmo conservador.
+const MAL_DELAY_MS = 1200;
 let cancelado = false;
 
 export async function abrirMalSync() {
@@ -39,7 +42,7 @@ export async function abrirMalSync() {
       </p>
     </div>
     <p style="font-size:11px;color:var(--muted);text-align:center">
-      Tiempo estimado: ${Math.ceil(total * JIKAN_DELAY_MS / 1000)} s · ${JIKAN_DELAY_MS}ms entre peticiones (reintenta ante 429)
+      Tiempo estimado: ${Math.ceil(total * MAL_DELAY_MS / 1000)} s · ${MAL_DELAY_MS}ms entre peticiones (reintenta ante 429)
     </p>
     ` : ''}
   `;
@@ -88,7 +91,9 @@ async function ejecutarSync(entradas) {
     document.getElementById('malSyncBar').style.width = pct + '%';
     document.getElementById('malSyncCurrent').textContent = `${i+1}/${total} · ${e.titulo}`;
     try {
-      const data = await jikanGet(`https://api.jikan.moe/v4/anime/${e.mal_id}`, 5, 3000);
+      const consulta = await api.malDetalle(e.mal_id);
+      if (!consulta.ok) throw new Error(mensajeErrorMal(consulta.codigo, consulta.mensaje));
+      const data = consulta.datos;
       if (!data) throw new Error('Sin datos');
       const res = await api.actualizarDesdeMal(e.id, data);
       if (res.cambios.length > 0) {
@@ -110,7 +115,7 @@ async function ejecutarSync(entradas) {
     }
     // Rate limit
     if (i < entradas.length - 1 && !cancelado) {
-      await new Promise(r => setTimeout(r, JIKAN_DELAY_MS));
+      await new Promise(r => setTimeout(r, MAL_DELAY_MS));
     }
   }
 

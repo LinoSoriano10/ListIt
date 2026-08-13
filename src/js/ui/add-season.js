@@ -11,30 +11,36 @@ import { toast } from '../lib/toast.js';
 import { cargarContenido } from './content.js';
 import { mostrarDetalle } from './detail.js';
 import { tituloMAL, codigoEmision } from '../lib/mal-format.js';
-import { jikanGet } from '../lib/jikan.js';
+import { mensajeErrorMal } from '../lib/mal-errores.js';
 
-const JIKAN_DELAY_MS = 400;
+// Ritmo entre peticiones. La API oficial es más permisiva, pero la reserva de
+// Jikan limita a ~3 req/s y el proveedor puede caer a ella en cualquier momento.
+const MAL_DELAY_MS = 400;
 const VENTANA_MS = 7 * 24 * 60 * 60 * 1000; // no recomprobar un anime más de una vez por semana
 let cancelado    = false;
 let scopeSerieId = null;
 let ignorados    = new Map();   // mal_id -> título de las temporadas ignoradas (restaurables)
 let sequelMap    = {};          // caché de la cadena: mal_id -> mal_id de su secuela
 
-const delay = () => new Promise(r => setTimeout(r, JIKAN_DELAY_MS));
+const delay = () => new Promise(r => setTimeout(r, MAL_DELAY_MS));
 
-async function jikanRelations(malId) {
-  return (await jikanGet(`https://api.jikan.moe/v4/anime/${malId}/relations`)) || [];
+async function malRelaciones(malId) {
+  const res = await api.malRelaciones(malId);
+  if (!res.ok) throw new Error(mensajeErrorMal(res.codigo, res.mensaje));
+  return res.datos || [];
 }
 
-async function jikanAnime(malId) {
-  return (await jikanGet(`https://api.jikan.moe/v4/anime/${malId}`)) || null;
+async function malAnime(malId) {
+  const res = await api.malDetalle(malId);
+  if (!res.ok) throw new Error(mensajeErrorMal(res.codigo, res.mensaje));
+  return res.datos || null;
 }
 
 // Devuelve el mal_id de la secuela de `malId` (o null). Cachea solo los enlaces
 // positivos: un "sin secuela" no se guarda porque la punta puede recibir una nueva.
 async function sequelDe(malId) {
   if (sequelMap[malId]) return sequelMap[malId];
-  const rels = await jikanRelations(malId);
+  const rels = await malRelaciones(malId);
   await delay();
   const seq  = rels.find(r => r.relation === 'Sequel');
   const next = seq?.entry?.find(e => e.type === 'anime');
@@ -73,7 +79,7 @@ async function etiquetarNoEmitidasUnaVez() {
     setProgress(Math.round((i / candidatas.length) * 100));
     setStatus(`Revisando temporadas anunciadas ${i + 1}/${candidatas.length}…`);
     try {
-      const det = await jikanAnime(candidatas[i].mal_id);
+      const det = await malAnime(candidatas[i].mal_id);
       await delay();
       if (det && codigoEmision(det.status) === 'proximamente') confirmadas.push(candidatas[i].id);
     } catch (_) { /* sin red para esta: se deja como estaba */ }
@@ -170,7 +176,7 @@ async function escanear(forzar = false) {
       for (const e of entregas) {
         if (cancelado) return;
         if (e.no_emitido && e.mal_id) {
-          const det = await jikanAnime(e.mal_id);
+          const det = await malAnime(e.mal_id);
           await delay();
           if (det && codigoEmision(det.status) !== 'proximamente') {
             await api.marcarEntregaEmitida(e.id, det.episodes || 0);
@@ -193,7 +199,7 @@ async function escanear(forzar = false) {
         tail = cur; tailDet = null;
         if (cancelado) return;
         if (!owned.has(cur) && !ignorados.has(cur)) {
-          const det = await jikanAnime(cur);
+          const det = await malAnime(cur);
           await delay();
           if (det) {
             candidatos.push({ serie: s, anime: det });
@@ -207,7 +213,7 @@ async function escanear(forzar = false) {
 
       // (B) Marca de emisión de la franquicia = estado de su última temporada.
       try {
-        const ult = tailDet || await jikanAnime(tail);
+        const ult = tailDet || await malAnime(tail);
         if (!tailDet) await delay();
         if (ult) await api.setEmisionFranquicia(s.id, codigoEmision(ult.status));
       } catch (_) { /* la marca de emisión es best-effort */ }
@@ -315,7 +321,7 @@ async function mostrarIgnoradas() {
     let cambiado = false;
     for (const mid of faltan) {
       try {
-        const det = await jikanAnime(mid);
+        const det = await malAnime(mid);
         await delay();
         const t = det ? tituloMAL(det) : '';
         if (t) { ignorados.set(mid, t); cambiado = true; }

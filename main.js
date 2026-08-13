@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const { hacerBackupDiario, exportarBd } = require('./lib/backup');
 const log  = require('./lib/logger');
 const db   = require('./db');
+const proveedorMal = require('./lib/proveedor-mal');
+const malOficial   = require('./lib/mal-oficial');
 
 // Backup diario antes de que la app abra la ventana
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
@@ -372,8 +374,64 @@ ipcMain.handle('reordenar-entregas', (_, { contenidoId, idsOrdenados }) => {
   return db.reordenarEntregas(contenidoId, idsOrdenados);
 });
 
+// ── Consultas a MyAnimeList ───────────────────────────────────────────────────
+// Las llamadas de red salen del proceso principal, no del renderer: así el
+// Client ID nunca llega a la ventana y la CSP no necesita abrirse a dominios
+// externos. La fuente principal es la API oficial y Jikan queda de reserva.
+//
+// Los errores NO se lanzan: al cruzar el puente IPC, Electron aplasta el objeto
+// Error y se pierde el `codigo` que la UI necesita para dar un mensaje útil. Se
+// devuelve un resultado explícito { ok, ... } en su lugar.
+
+async function resultadoMal(operacion) {
+  try {
+    return { ok: true, ...(await operacion()) };
+  } catch (err) {
+    return {
+      ok: false,
+      codigo:  err?.codigo  || 'desconocido',
+      mensaje: err?.message || String(err),
+    };
+  }
+}
+
+ipcMain.handle('mal-buscar', (_, { query, limite }) =>
+  resultadoMal(() => proveedorMal.buscar(query, limite || 8)));
+
+ipcMain.handle('mal-detalle', (_, malId) =>
+  resultadoMal(() => proveedorMal.detalle(malId)));
+
+ipcMain.handle('mal-relaciones', (_, malId) =>
+  resultadoMal(() => proveedorMal.relaciones(malId)));
+
+// ── Credencial de MyAnimeList ─────────────────────────────────────────────────
+// El Client ID solo entra; nunca sale hacia el renderer. La UI solo recibe si
+// está configurado o no.
+
+ipcMain.handle('mal-credencial-estado', () => ({
+  configurado: malOficial.configurado(),
+  cifrado:     require('./lib/credenciales').cifradoDisponible(),
+}));
+
+ipcMain.handle('mal-credencial-guardar', async (_, clientId) => {
+  try {
+    await malOficial.probarClientId(clientId);
+    malOficial.guardarClientId(clientId);
+    log.info('Client ID de MyAnimeList guardado');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, codigo: err?.codigo || 'desconocido', mensaje: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('mal-credencial-borrar', () => {
+  malOficial.borrarClientId();
+  log.info('Client ID de MyAnimeList borrado');
+  return { ok: true };
+});
+
 // ── A.7 Actualización desde MAL ───────────────────────────────────────────────
-// El renderer hace el fetch a Jikan y pasa el JSON resultante.
+// El renderer pide los datos por IPC (arriba) y pasa el JSON resultante.
 
 ipcMain.handle('actualizar-desde-mal', (event, { id, mal }) => {
   const resultado = db.actualizarCamposMAL(id, mal);

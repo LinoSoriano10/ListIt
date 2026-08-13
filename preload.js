@@ -85,4 +85,17 @@ contextBridge.exposeInMainWorld('api', {
 
   // A.7 Sincronización masiva MAL
   obtenerEntradasConMalId: () => ipcRenderer.invoke('obtener-entradas-con-mal-id'),
+
+  // Consultas a MyAnimeList. El fetch lo hace el proceso principal (API oficial,
+  // con Jikan de reserva); aquí solo viaja el resultado ya normalizado.
+  // Todas devuelven { ok: true, fuente, datos } o { ok: false, codigo, mensaje }.
+  malBuscar:     (query, limite) => ipcRenderer.invoke('mal-buscar', { query, limite }),
+  malDetalle:    (malId)         => ipcRenderer.invoke('mal-detalle', malId),
+  malRelaciones: (malId)         => ipcRenderer.invoke('mal-relaciones', malId),
+
+  // Credencial de MyAnimeList. El Client ID solo entra: `estado` informa de si
+  // hay uno guardado, pero nunca lo devuelve.
+  malCredencialEstado:  ()         => ipcRenderer.invoke('mal-credencial-estado'),
+  malCredencialGuardar: (clientId) => ipcRenderer.invoke('mal-credencial-guardar', clientId),
+  malCredencialBorrar:  ()         => ipcRenderer.invoke('mal-credencial-borrar'),
 });

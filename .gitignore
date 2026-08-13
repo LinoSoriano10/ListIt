@@ -12,3 +12,7 @@
 
 # Configuraciones de entorno
 /.env
+
+# Credenciales. Su sitio es userData (fuera del proyecto), así que esto no
+# debería hacer falta nunca; está por si alguna copia acaba aquí al depurar.
+credenciales.json

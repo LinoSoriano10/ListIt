@@ -2,7 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data: file: imgcache:; connect-src 'self' https://api.jikan.moe; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <!-- connect-src queda en 'self': las consultas a MyAnimeList las hace ahora el
+       proceso principal por IPC, así que el renderer ya no habla con dominios
+       externos y no hace falta permitírselo. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data: file: imgcache:; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
   <title>ListIt</title>
   <link rel="stylesheet" href="styles/base.css">
   <link rel="stylesheet" href="styles/layout.css">
@@ -337,6 +340,33 @@
           <div class="settings-row">
             <label>Caché de imágenes</label>
             <button class="btn-secondary" id="btnVaciarCacheImg" type="button">Vaciar caché</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">MyAnimeList</div>
+          <p style="font-size:11px;color:var(--muted);margin:0 0 10px">
+            ListIt usa la API oficial de MyAnimeList para buscar y actualizar fichas.
+            Necesita un <b>Client ID</b> propio, gratuito: créalo en
+            <span style="color:var(--accent2)">myanimelist.net/apiconfig</span> →
+            «Create ID». El <b>Client Secret no hace falta</b>.
+            Se guarda cifrado en este ordenador y nunca sale de él.
+          </p>
+          <div class="settings-row">
+            <label>Estado</label>
+            <span id="malCredEstado" style="font-size:12px">—</span>
+          </div>
+          <div class="settings-row">
+            <label>Client ID</label>
+            <input type="password" id="settingMalClientId" autocomplete="off"
+                   spellcheck="false" placeholder="Pega aquí tu Client ID">
+          </div>
+          <div class="settings-row">
+            <label></label>
+            <div style="display:flex;gap:8px">
+              <button class="btn-secondary" id="btnMalCredGuardar" type="button">Comprobar y guardar</button>
+              <button class="btn-secondary" id="btnMalCredBorrar"  type="button">Borrar</button>
+            </div>
           </div>
         </div>
 

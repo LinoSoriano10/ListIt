@@ -17,7 +17,8 @@ import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
 import { instalarMarquee } from './lib/marquee.js';
 import { cargarDashboard } from './ui/dashboard.js';
 import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
-import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema } from './ui/settings.js';
+import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema,
+         guardarClientIdMal, borrarClientIdMal } from './ui/settings.js';
 import { cerrarDetalle, mostrarDetalle } from './ui/detail.js';
 import { inicializarBulk, salirSeleccion, refrescarTagsBulk } from './ui/bulk-actions.js';
 import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
@@ -191,6 +192,8 @@ $('btnVaciarCacheImg').addEventListener('click', async () => {
   await api.vaciarCacheImagenes();
   toast.success('Caché de imágenes vaciada');
 });
+$('btnMalCredGuardar').addEventListener('click', guardarClientIdMal);
+$('btnMalCredBorrar').addEventListener('click', borrarClientIdMal);
 $('modalSettings').addEventListener('click', e => {
   if (e.target === $('modalSettings')) cerrarSettings();
 });

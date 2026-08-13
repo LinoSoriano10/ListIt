@@ -2,17 +2,17 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escapeHtml } from './escape.js';
 import { extraerCamposMAL, tituloMAL, codigoEmision } from './mal-format.js';
+import { mensajeErrorMal } from './mal-errores.js';
 
 /**
- * Refresca una entrada concreta desde la API de Jikan.
+ * Refresca una entrada concreta desde MyAnimeList.
  * Devuelve `{ cambios: string[], episodios_actualizados }` o lanza error.
  */
 export async function actualizarEntradaDesdeMal(contenidoId, malId) {
-  const resp = await fetch(`https://api.jikan.moe/v4/anime/${malId}`);
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const json = await resp.json();
-  if (!json.data) throw new Error('Sin datos en la respuesta');
-  return api.actualizarDesdeMal(contenidoId, json.data);
+  const res = await api.malDetalle(malId);
+  if (!res.ok) throw new Error(mensajeErrorMal(res.codigo, res.mensaje));
+  if (!res.datos) throw new Error('Sin datos en la respuesta');
+  return api.actualizarDesdeMal(contenidoId, res.datos);
 }
 
 export async function buscarEnMAL(query, onSelect) {
@@ -20,20 +20,24 @@ export async function buscarEnMAL(query, onSelect) {
   results.innerHTML = '<div class="mal-loading">Buscando...</div>';
 
   try {
+    // El fetch lo hace el proceso principal: API oficial de MAL si hay Client ID
+    // configurado, con Jikan de reserva. Ambas llegan ya con la misma forma.
     const malUrlMatch = query.match(/myanimelist\.net\/anime\/(\d+)/);
-    let data;
+    const res = malUrlMatch
+      ? await api.malDetalle(malUrlMatch[1])
+      : await api.malBuscar(query, 8);
 
-    if (malUrlMatch) {
-      const resp = await fetch(`https://api.jikan.moe/v4/anime/${malUrlMatch[1]}`);
-      if (!resp.ok) throw new Error();
-      const json = await resp.json();
-      data = json.data ? [json.data] : [];
-    } else {
-      const resp = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=8`);
-      if (!resp.ok) throw new Error();
-      const json = await resp.json();
-      data = json.data || [];
+    // Fallo de la consulta: mensaje concreto según el motivo, en vez del
+    // "Error al conectar" genérico que no decía qué hacer.
+    if (!res.ok) {
+      results.innerHTML =
+        `<div class="mal-empty">${escapeHtml(mensajeErrorMal(res.codigo, res.mensaje))}</div>`;
+      return;
     }
+
+    const data = malUrlMatch
+      ? (res.datos ? [res.datos] : [])
+      : (res.datos || []);
 
     if (data.length === 0) {
       results.innerHTML = '<div class="mal-empty">Sin resultados</div>';
@@ -105,8 +109,11 @@ export async function buscarEnMAL(query, onSelect) {
     row.appendChild(btnAplicar);
     results.appendChild(row);
 
-  } catch (_) {
-    results.innerHTML = '<div class="mal-empty">Error al conectar con MyAnimeList</div>';
+  } catch (err) {
+    // Los fallos de consulta ya se resuelven arriba con su código y su mensaje;
+    // aquí solo llegan errores inesperados al construir la lista.
+    console.error('Error pintando resultados de MAL:', err);
+    results.innerHTML = '<div class="mal-empty">No se pudieron mostrar los resultados</div>';
   }
 }
 
