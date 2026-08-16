@@ -7,6 +7,8 @@ const log  = require('./lib/logger');
 const db   = require('./db');
 const proveedorMal = require('./lib/proveedor-mal');
 const malOficial   = require('./lib/mal-oficial');
+const sync         = require('./lib/firestore-sync');
+const snapshot     = require('./lib/snapshot');
 
 // Backup diario antes de que la app abra la ventana
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
@@ -450,3 +452,163 @@ ipcMain.handle('actualizar-desde-mal', (event, { id, mal }) => {
 ipcMain.handle('obtener-entradas-con-mal-id', () => {
   return db.obtenerEntradasConMalId();
 });
+
+// ── Sincronización con Firestore (opcional) ───────────────────────────────────
+// Modelo de instantánea completa: la biblioteca entera viaja como un único
+// documento comprimido. El último en escribir gana sobre el conjunto, así que
+// todo el cuidado está en detectar cuándo eso destruiría algo.
+//
+// Marcas de agua locales, en la tabla `settings` (que NO se sincroniza):
+//   sync_hash  → hash del contenido en la última sincronización correcta
+//   sync_fecha → cuándo fue
+// Si el hash local difiere de sync_hash, hay cambios locales sin subir. Si el
+// remoto difiere de sync_hash, alguien subió desde otro equipo. Ambos a la vez
+// es un conflicto y se pregunta antes de pisar nada.
+
+const os = require('os');
+
+function instantaneaLocal() {
+  const snap = db.exportarSnapshot(os.hostname());
+  return { snap, hash: snapshot.hash(snap) };
+}
+
+function marcaAgua() {
+  return {
+    hash:  db.getSetting('sync_hash')  || null,
+    fecha: db.getSetting('sync_fecha') || null,
+  };
+}
+
+function anotarSync(hash) {
+  db.setSetting('sync_hash', hash);
+  db.setSetting('sync_fecha', new Date().toISOString());
+}
+
+// Copia de seguridad antes de sustituir la biblioteca. Reutiliza exportarBd,
+// el mismo mecanismo del backup diario.
+function copiaAntesDeImportar() {
+  const dir = path.join(app.getPath('userData'), 'backups');
+  fs.mkdirSync(dir, { recursive: true });
+  const sello = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const destino = path.join(dir, `listit-pre-sync-${sello}.db`);
+  exportarBd(dbPath, destino);
+  log.info('backup previo a importar:', destino);
+  return destino;
+}
+
+async function resultadoSync(operacion) {
+  try {
+    return { ok: true, ...(await operacion()) };
+  } catch (err) {
+    return {
+      ok: false,
+      codigo:  err?.codigo  || 'desconocido',
+      mensaje: err?.message || String(err),
+    };
+  }
+}
+
+ipcMain.handle('sync-estado', () => {
+  const base = sync.estado();
+  if (!base.configurado) return { ...base, hayCambiosLocales: false };
+
+  const { hash } = instantaneaLocal();
+  const marca = marcaAgua();
+  return {
+    ...base,
+    ultimaFecha:       marca.fecha,
+    hayCambiosLocales: marca.hash !== hash,
+    nuncaSincronizado: marca.hash === null,
+    resumen:           db.resumenBiblioteca(),
+  };
+});
+
+ipcMain.handle('sync-configurar', (_, { config, email, password }) =>
+  resultadoSync(() => sync.configurar({ config, email, password })));
+
+ipcMain.handle('sync-desactivar', () => {
+  sync.desactivar();
+  // Las marcas de agua dejan de tener sentido sin destino con el que compararlas.
+  db.setSetting('sync_hash', '');
+  db.setSetting('sync_fecha', '');
+  log.info('sincronización desactivada');
+  return { ok: true };
+});
+
+ipcMain.handle('sync-subir', (_, { forzar } = {}) => resultadoSync(async () => {
+  const { snap, hash } = instantaneaLocal();
+  const marca = marcaAgua();
+
+  // ¿Ha subido alguien más desde la última vez que sincronizamos?
+  const remoto = await sync.bajar();
+  if (remoto && !forzar && remoto.hash !== hash && remoto.hash !== marca.hash) {
+    return {
+      conflicto: true,
+      motivo: 'remoto-mas-nuevo',
+      remoto: {
+        dispositivo: remoto.dispositivo,
+        generado_en: remoto.generado_en,
+      },
+    };
+  }
+
+  if (remoto && remoto.hash === hash) {
+    anotarSync(hash);
+    return { sinCambios: true, hash };
+  }
+
+  const comprimido = snapshot.comprimir(snap);
+  const medida = snapshot.cabeEnFirestore(comprimido);
+  if (!medida.cabe) {
+    throw Object.assign(
+      new Error(
+        `La biblioteca comprimida ocupa ${(medida.bytes / 1024).toFixed(0)} KB y ` +
+        `Firestore admite como mucho ${(medida.limite / 1024).toFixed(0)} KB por documento`),
+      { codigo: 'demasiado-grande' },
+    );
+  }
+
+  const r = await sync.subir(comprimido, {
+    version: snap.version,
+    hash,
+    generado_en: snap.generado_en,
+    dispositivo: snap.dispositivo,
+  });
+  anotarSync(hash);
+  log.info(`sincronización: subidos ${medida.bytes} bytes (${medida.porcentaje}% del límite)`);
+  return { subido: true, bytes: r.bytes, porcentaje: medida.porcentaje, hash };
+}));
+
+ipcMain.handle('sync-bajar', (_, { forzar } = {}) => resultadoSync(async () => {
+  const remoto = await sync.bajar();
+  if (!remoto) {
+    throw Object.assign(new Error('Todavía no hay ninguna copia en la nube'),
+      { codigo: 'no-existe' });
+  }
+
+  const { hash } = instantaneaLocal();
+  if (remoto.hash === hash) {
+    anotarSync(hash);
+    return { sinCambios: true };
+  }
+
+  // ¿Hay cambios locales que aún no se han subido? Bajar los destruiría.
+  const marca = marcaAgua();
+  if (!forzar && marca.hash !== hash) {
+    return {
+      conflicto: true,
+      motivo: 'cambios-locales',
+      remoto: { dispositivo: remoto.dispositivo, generado_en: remoto.generado_en },
+    };
+  }
+
+  const copia = copiaAntesDeImportar();
+  const snap = snapshot.descomprimir(remoto.datos);
+  const resumen = db.importarSnapshot(snap);
+  anotarSync(remoto.hash);
+
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('biblioteca-recargada');
+  log.info('sincronización: biblioteca sustituida desde la nube');
+  return { importado: true, resumen, copia, remoto: {
+    dispositivo: remoto.dispositivo, generado_en: remoto.generado_en } };
+}));

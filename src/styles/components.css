@@ -1404,9 +1404,38 @@ textarea { resize: vertical; min-height: 72px; }
   letter-spacing: 0;
 }
 .settings-row select,
-.settings-row input[type="text"] {
+.settings-row input[type="text"],
+.settings-row input[type="email"],
+.settings-row input[type="password"] {
   width: 180px;
   flex-shrink: 0;
+}
+/* Filas de ancho completo: la configuración de Firebase se pega de una vez y
+   necesita más sitio que un campo de 180 px. */
+.settings-row--ancha {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.settings-row--ancha label { flex: none; }
+.settings-row--ancha textarea {
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.settings-nota {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 0 10px;
+  line-height: 1.6;
+}
+.settings-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .settings-info {
   font-size: 12px;

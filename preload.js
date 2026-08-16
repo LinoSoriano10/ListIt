@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 // Mensajes que el proceso principal envía a la ventana principal (refrescos).
-const ALLOWED_EVENTS = ['detalle-refrescar'];
+const ALLOWED_EVENTS = ['detalle-refrescar', 'biblioteca-recargada'];
 contextBridge.exposeInMainWorld('events', {
   on: (canal, fn) => {
     if (!ALLOWED_EVENTS.includes(canal)) return;
@@ -98,4 +98,12 @@ contextBridge.exposeInMainWorld('api', {
   malCredencialEstado:  ()         => ipcRenderer.invoke('mal-credencial-estado'),
   malCredencialGuardar: (clientId) => ipcRenderer.invoke('mal-credencial-guardar', clientId),
   malCredencialBorrar:  ()         => ipcRenderer.invoke('mal-credencial-borrar'),
+
+  // Sincronización con Firestore (opcional, desactivada por defecto).
+  // La configuración y la contraseña solo entran; `estado` nunca las devuelve.
+  syncEstado:      ()        => ipcRenderer.invoke('sync-estado'),
+  syncConfigurar:  (datos)   => ipcRenderer.invoke('sync-configurar', datos),
+  syncDesactivar:  ()        => ipcRenderer.invoke('sync-desactivar'),
+  syncSubir:       (opts)    => ipcRenderer.invoke('sync-subir', opts || {}),
+  syncBajar:       (opts)    => ipcRenderer.invoke('sync-bajar', opts || {}),
 });

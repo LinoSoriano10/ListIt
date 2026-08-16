@@ -18,7 +18,8 @@ import { instalarMarquee } from './lib/marquee.js';
 import { cargarDashboard } from './ui/dashboard.js';
 import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
 import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema,
-         guardarClientIdMal, borrarClientIdMal } from './ui/settings.js';
+         guardarClientIdMal, borrarClientIdMal,
+         activarSync, subirSync, bajarSync, desactivarSync } from './ui/settings.js';
 import { cerrarDetalle, mostrarDetalle } from './ui/detail.js';
 import { inicializarBulk, salirSeleccion, refrescarTagsBulk } from './ui/bulk-actions.js';
 import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
@@ -42,6 +43,15 @@ window.events?.on('detalle-refrescar', (id) => {
   if (state.idActual === id && $('detailPanel').classList.contains('open')) {
     mostrarDetalle(id);
   }
+});
+
+// Tras bajar una instantánea de la nube, la biblioteca entera es otra: los ids
+// del panel abierto pueden ya no existir, así que se cierra y se recarga todo.
+window.events?.on('biblioteca-recargada', () => {
+  $('detailPanel').classList.remove('open');
+  state.idActual = null;
+  cargarContenido('');
+  $('searchBar').value = '';
 });
 
 // ─── Filtros del sidebar ──────────────────────────────────
@@ -194,6 +204,10 @@ $('btnVaciarCacheImg').addEventListener('click', async () => {
 });
 $('btnMalCredGuardar').addEventListener('click', guardarClientIdMal);
 $('btnMalCredBorrar').addEventListener('click', borrarClientIdMal);
+$('btnSyncActivar').addEventListener('click', activarSync);
+$('btnSyncSubir').addEventListener('click', () => subirSync());
+$('btnSyncBajar').addEventListener('click', () => bajarSync());
+$('btnSyncDesactivar').addEventListener('click', desactivarSync);
 $('modalSettings').addEventListener('click', e => {
   if (e.target === $('modalSettings')) cerrarSettings();
 });

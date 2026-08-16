@@ -3,6 +3,7 @@ const path = require('path');
 const { app } = require('electron');
 const { todasCompletas } = require('./lib/season-status');
 const { decidirTransicionPorProgreso } = require('./lib/estado-transiciones');
+const snapshot = require('./lib/snapshot');
 
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
 const db = new Database(dbPath);
@@ -939,8 +940,86 @@ function obtenerImagenesUsadas() {
   return db.prepare("SELECT imagen FROM contenido WHERE imagen IS NOT NULL AND imagen != ''").all().map(r => r.imagen);
 }
 
+// ── Sincronización: instantánea completa ──────────────────────────────────────
+// El SQL vive aquí y la forma del documento en lib/snapshot.js, que es puro y
+// testeable sin el módulo nativo.
+
+function columnasDe(tabla) {
+  return db.prepare(`PRAGMA table_info("${tabla}")`).all().map(c => c.name);
+}
+
+/**
+ * Vuelca las tablas sincronizables a un documento en memoria.
+ */
+function exportarSnapshot(dispositivo = '') {
+  const tablas = {};
+  for (const t of snapshot.TABLAS) {
+    tablas[t] = db.prepare(`SELECT * FROM "${t}"`).all();
+  }
+  return snapshot.construir(tablas, { dispositivo });
+}
+
+/**
+ * Sustituye TODA la biblioteca local por la de la instantánea, en una sola
+ * transacción: o entra entera o no entra nada. Quien llame debe haber hecho
+ * copia de seguridad antes — esto borra lo que hubiera.
+ */
+function importarSnapshot(snap) {
+  const fallos = snapshot.validar(snap);
+  if (fallos.length > 0) {
+    throw new Error(`Instantánea inválida: ${fallos.join('; ')}`);
+  }
+
+  const aplicar = db.transaction(() => {
+    // Hijos primero: así el borrado no depende del CASCADE y las claves
+    // foráneas pueden quedarse activadas durante toda la operación.
+    for (const t of snapshot.ORDEN_BORRADO) {
+      db.prepare(`DELETE FROM "${t}"`).run();
+    }
+
+    const resumen = {};
+    for (const t of snapshot.ORDEN_INSERCION) {
+      const filas = snap.tablas[t] || [];
+      resumen[t] = filas.length;
+      if (filas.length === 0) continue;
+
+      // Solo las columnas que existen en ESTA instalación. Si la instantánea
+      // viene de una versión con columnas de más, se ignoran en vez de fallar;
+      // si trae de menos, las locales toman su valor por defecto.
+      const locales = new Set(columnasDe(t));
+      const cols = Object.keys(filas[0]).filter(c => locales.has(c));
+      if (cols.length === 0) continue;
+
+      const stmt = db.prepare(
+        `INSERT INTO "${t}" (${cols.map(c => `"${c}"`).join(', ')}) ` +
+        `VALUES (${cols.map(() => '?').join(', ')})`
+      );
+      for (const fila of filas) {
+        stmt.run(cols.map(c => (fila[c] === undefined ? null : fila[c])));
+      }
+    }
+    return resumen;
+  });
+
+  return aplicar();
+}
+
+/**
+ * Recuento por tabla, para que la UI pueda decir qué se va a subir o bajar.
+ */
+function resumenBiblioteca() {
+  const r = {};
+  for (const t of snapshot.TABLAS) {
+    r[t] = db.prepare(`SELECT COUNT(*) AS n FROM "${t}"`).get().n;
+  }
+  return r;
+}
+
 module.exports = {
   obtenerImagenesUsadas,
+  exportarSnapshot,
+  importarSnapshot,
+  resumenBiblioteca,
   obtenerContenido,
   obtenerPorId,
   guardarContenido,

@@ -345,7 +345,7 @@
 
         <div class="settings-section">
           <div class="settings-section-title">MyAnimeList</div>
-          <p style="font-size:11px;color:var(--muted);margin:0 0 10px">
+          <p class="settings-nota">
             ListIt usa la API oficial de MyAnimeList para buscar y actualizar fichas.
             Necesita un <b>Client ID</b> propio, gratuito: créalo en
             <span style="color:var(--accent2)">myanimelist.net/apiconfig</span> →
@@ -363,9 +363,58 @@
           </div>
           <div class="settings-row">
             <label></label>
-            <div style="display:flex;gap:8px">
+            <div class="settings-acciones">
               <button class="btn-secondary" id="btnMalCredGuardar" type="button">Comprobar y guardar</button>
               <button class="btn-secondary" id="btnMalCredBorrar"  type="button">Borrar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Sincronización entre ordenadores</div>
+          <p class="settings-nota">
+            Opcional y desactivada por defecto. Guarda tu biblioteca en <b>tu propio
+            proyecto de Firebase</b> para tenerla en varios ordenadores. Nada se
+            comparte con nadie: el proyecto, la cuenta y las claves son tuyos y se
+            guardan cifrados solo en este equipo.<br>
+            Se sincroniza <b>la biblioteca entera de una vez</b>, así que el último
+            en subir manda. Antes de bajar se hace copia de seguridad local
+            automáticamente.
+          </p>
+
+          <div class="settings-row">
+            <label>Estado</label>
+            <span id="syncEstado" style="font-size:12px">—</span>
+          </div>
+
+          <div id="syncFormulario">
+            <div class="settings-row settings-row--ancha">
+              <label>Configuración de Firebase</label>
+              <textarea id="syncConfig" spellcheck="false" autocomplete="off"
+                placeholder='Pega aquí el bloque firebaseConfig de la consola de Firebase:&#10;&#10;const firebaseConfig = {&#10;  apiKey: "...",&#10;  authDomain: "tu-proyecto.firebaseapp.com",&#10;  projectId: "tu-proyecto",&#10;  appId: "1:123...:web:abc..."&#10;};'></textarea>
+            </div>
+            <div class="settings-row">
+              <label>Email de la cuenta</label>
+              <input type="email" id="syncEmail" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="settings-row">
+              <label>Contraseña</label>
+              <input type="password" id="syncPassword" autocomplete="off">
+            </div>
+            <div class="settings-row">
+              <label></label>
+              <div class="settings-acciones">
+                <button class="btn-secondary" id="btnSyncActivar" type="button">Activar sincronización</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-row" id="syncAcciones" style="display:none">
+            <label></label>
+            <div class="settings-acciones">
+              <button class="btn-secondary" id="btnSyncSubir"      type="button">Subir ahora</button>
+              <button class="btn-secondary" id="btnSyncBajar"      type="button">Bajar ahora</button>
+              <button class="btn-secondary" id="btnSyncDesactivar" type="button">Desactivar</button>
             </div>
           </div>
         </div>
