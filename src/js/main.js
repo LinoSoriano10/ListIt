@@ -16,17 +16,17 @@ import { buscarEnMAL, aplicarDatosMAL } from './lib/mal.js';
 import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
 import { instalarMarquee } from './lib/marquee.js';
 import { cargarDashboard } from './ui/dashboard.js';
-import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
 import { cebarTipos } from './lib/tipos-ui.js';
 import { cargarCalendario, semanaAnterior, semanaSiguiente, semanaActual,
          refrescarCalendario } from './ui/calendario.js';
-import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema,
+import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema, inicializarPestanas,
          guardarClientIdMal, borrarClientIdMal,
          activarSync, subirSync, bajarSync, desactivarSync } from './ui/settings.js';
 import { cerrarDetalle, mostrarDetalle } from './ui/detail.js';
 import { inicializarBulk, salirSeleccion, refrescarTagsBulk } from './ui/bulk-actions.js';
 import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
 import { abrirAddSeason, cerrarAddSeason, inicializarAddSeason } from './ui/add-season.js';
+import { renderEtiquetas } from './ui/tagsManager.js';
 import { deshacer } from './lib/undo.js';
 import { toast } from './lib/toast.js';
 
@@ -171,7 +171,6 @@ document.addEventListener('keydown', e => {
     if ($('modalAddSeason')?.style.display !== 'none')  { cerrarAddSeason(); return; }
     if ($('modalMalSync')?.style.display !== 'none')    { cerrarMalSync(); return; }
     if ($('modalSettings')?.style.display !== 'none')   { cerrarSettings(); return; }
-    if ($('modalTagsManager').style.display !== 'none') { cerrarTagsManager(); return; }
     if ($('modal').style.display !== 'none')            { cerrarModal(); return; }
     if (state.modoSeleccion)                            { salirSeleccion(); return; }
     if ($('detailPanel').classList.contains('open'))    { cerrarDetalle(); return; }
@@ -225,7 +224,9 @@ $('modalSettings').addEventListener('click', e => {
 // ─── Atajos de teclado (ayuda) ─────────────────────────────
 const abrirAtajos  = () => { $('modalAtajos').style.display = 'flex'; };
 const cerrarAtajos = () => { $('modalAtajos').style.display = 'none'; };
-$('btnAtajos').addEventListener('click', abrirAtajos);
+// Los atajos son ayuda, no configuracion: van como enlace discreto en el pie
+// de Ajustes en vez de ocupar un sitio permanente en la barra lateral.
+$('btnVerAtajos').addEventListener('click', abrirAtajos);
 $('btnCerrarAtajos').addEventListener('click', cerrarAtajos);
 $('btnCerrarAtajosOk').addEventListener('click', cerrarAtajos);
 $('modalAtajos').addEventListener('click', e => {
@@ -270,13 +271,7 @@ inicializarAddSeason();
   });
 })();
 
-// ─── Tags Manager ──────────────────────────────────────────
-$('btnTagsManager').addEventListener('click', abrirTagsManager);
-$('btnCerrarTagsManager').addEventListener('click', cerrarTagsManager);
-$('btnCerrarTagsManagerOk').addEventListener('click', cerrarTagsManager);
-$('modalTagsManager').addEventListener('click', e => {
-  if (e.target === $('modalTagsManager')) cerrarTagsManager();
-});
+// ─── Etiquetas (pestaña de Configuración) ──────────────────
 
 $('tmBtnAddTag').addEventListener('click', async () => {
   const input = $('tmNewTagInput');
@@ -286,7 +281,7 @@ $('tmBtnAddTag').addEventListener('click', async () => {
   state.tagsDisponibles = await api.getTags();
   refrescarTagsBulk();
   input.value = '';
-  abrirTagsManager();
+  renderEtiquetas();
 });
 $('tmNewTagInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') $('tmBtnAddTag').click();
@@ -343,6 +338,7 @@ $('btnExportBd').addEventListener('click', () => api.exportarBd());
   // Los tipos se cargan antes de pintar: el gestor de etiquetas y el modal los
   // consultan de forma síncrona para separar tipos de etiquetas libres.
   await cebarTipos();
+  inicializarPestanas();
 
   actualizarTagFilterBar();
   await cargarContenido();

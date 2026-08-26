@@ -4,15 +4,36 @@ import { toast } from '../lib/toast.js';
 import { mensajeErrorMal } from '../lib/mal-errores.js';
 import { parsearConfigFirebase } from '../lib/firebase-config.js';
 import { invalidarTipos } from '../lib/tipos-ui.js';
+import { renderEtiquetas } from './tagsManager.js';
 
 export function aplicarTema(tema) {
   if (tema === 'light') document.documentElement.setAttribute('data-theme', 'light');
   else document.documentElement.removeAttribute('data-theme');
 }
 
-export function abrirSettings() {
+export function abrirSettings(panel) {
   cargarSettings();
+  if (panel) mostrarPanel(panel);
   document.getElementById('modalSettings').style.display = 'flex';
+}
+
+// ─── Pestañas ─────────────────────────────────────────────────────────────────
+// Cinco secciones en un solo cuerpo obligaban a un scroll largo para llegar a lo
+// de abajo. Cada una en su pestaña deja todo a un clic.
+
+export function mostrarPanel(nombre) {
+  document.querySelectorAll('.settings-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.panel === nombre));
+  document.querySelectorAll('.settings-panel').forEach(p => {
+    p.hidden = p.dataset.panel !== nombre;
+  });
+}
+
+export function inicializarPestanas() {
+  document.getElementById('settingsTabs')?.addEventListener('click', e => {
+    const tab = e.target.closest('.settings-tab');
+    if (tab) mostrarPanel(tab.dataset.panel);
+  });
 }
 
 export function cerrarSettings() {
@@ -36,6 +57,7 @@ async function cargarSettings() {
   document.getElementById('settingTheme').value = theme || 'dark';
 
   await renderTipos();
+  await renderEtiquetas();
   await refrescarEstadoMal();
   await refrescarEstadoSync();
 }

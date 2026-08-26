@@ -4,13 +4,13 @@ import { escapeHtml } from '../lib/escape.js';
 
 import { clavesTipoSync } from '../lib/tipos-ui.js';
 
-export function abrirTagsManager() {
-  document.getElementById('modalTagsManager').style.display = 'flex';
-  refrescarLista();
-}
-
-export function cerrarTagsManager() {
-  document.getElementById('modalTagsManager').style.display = 'none';
+// Antes esto era un modal propio lanzado desde la barra lateral. Ahora es una
+// pestana de Configuracion: en toda la biblioteca solo hay una etiqueta creada a
+// mano, asi que no justificaba un sitio permanente en la navegacion. Ademas
+// queda al lado de los tipos de contenido, que hacen el mismo trabajo de
+// clasificar y con los que se solapa.
+export async function renderEtiquetas() {
+  return refrescarLista();
 }
 
 async function refrescarLista() {

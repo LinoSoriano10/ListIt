@@ -52,6 +52,15 @@
       </select>
     </div>
 
+    <button class="btn-mal-sync" id="btnAddTemporada" title="Buscar nuevas temporadas de tus series en MAL">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+        <polyline points="2 17 12 22 22 17"/>
+        <polyline points="2 12 12 17 22 12"/>
+      </svg>
+      Temporadas
+    </button>
+
     <button class="btn-mal-sync" id="btnMalSync" title="Sincronizar entradas con MAL" style="display:none">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <polyline points="23 4 23 10 17 10"/>
@@ -110,29 +119,6 @@
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
           Calendario
-        </button>
-        <button class="filter-btn-dashboard" id="btnTagsManager">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-            <line x1="7" y1="7" x2="7.01" y2="7"/>
-          </svg>
-          Gestionar etiquetas
-        </button>
-        <button class="filter-btn-dashboard" id="btnAtajos">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
-            <line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          Atajos de teclado
-        </button>
-        <button class="filter-btn-dashboard" id="btnAddTemporada">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-            <polyline points="2 17 12 22 22 17"/>
-            <polyline points="2 12 12 17 22 12"/>
-          </svg>
-          Nuevas temporadas (MAL)
         </button>
       </div>
       <div class="sidebar-section">
@@ -384,13 +370,21 @@
 
   <!-- ─── Modal Configuración ────────────────────── -->
   <div class="modal-overlay" id="modalSettings" style="display:none">
-    <div class="modal-box" style="width:500px">
+    <div class="modal-box modal-box--ajustes">
       <div class="modal-header">
         <h2>Configuración</h2>
         <button class="btn-close-modal" id="btnCerrarSettings">×</button>
       </div>
+      <div class="settings-tabs" id="settingsTabs">
+        <button class="settings-tab active" data-panel="general">General</button>
+        <button class="settings-tab" data-panel="tipos">Tipos de contenido</button>
+        <button class="settings-tab" data-panel="etiquetas">Etiquetas</button>
+        <button class="settings-tab" data-panel="mal">MyAnimeList</button>
+        <button class="settings-tab" data-panel="sync">Sincronización</button>
+      </div>
       <div class="modal-body">
 
+        <div class="settings-panel" data-panel="general">
         <div class="settings-section">
           <div class="settings-section-title">General</div>
           <div class="settings-row">
@@ -410,6 +404,9 @@
           </div>
         </div>
 
+        </div>
+
+        <div class="settings-panel" data-panel="tipos" hidden>
         <div class="settings-section">
           <div class="settings-section-title">Tipos de contenido</div>
           <p class="settings-nota">
@@ -422,6 +419,25 @@
           <div id="settingsTipos" class="tipos-lista"></div>
         </div>
 
+        </div>
+
+        <div class="settings-panel" data-panel="etiquetas" hidden>
+        <div class="settings-section">
+          <div class="settings-section-title">Etiquetas</div>
+          <p class="settings-nota">
+            Las etiquetas que representan un tipo (anime, serie, película…) las gestiona
+            la pestaña anterior y aquí salen bloqueadas. El resto son tuyas: puedes
+            renombrarlas o borrarlas.
+          </p>
+          <div id="tagsManagerList"></div>
+          <div class="tag-add-row" style="margin-top:12px">
+            <input type="text" id="tmNewTagInput" placeholder="Nueva etiqueta...">
+            <button class="btn-secondary" id="tmBtnAddTag">+ Añadir</button>
+          </div>
+        </div>
+        </div>
+
+        <div class="settings-panel" data-panel="mal" hidden>
         <div class="settings-section">
           <div class="settings-section-title">MyAnimeList</div>
           <p class="settings-nota">
@@ -449,6 +465,9 @@
           </div>
         </div>
 
+        </div>
+
+        <div class="settings-panel" data-panel="sync" hidden>
         <div class="settings-section">
           <div class="settings-section-title">Sincronización entre ordenadores</div>
           <p class="settings-nota">
@@ -497,9 +516,12 @@
             </div>
           </div>
         </div>
+        </div>
 
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer modal-footer--ajustes">
+        <button class="btn-enlace" id="btnVerAtajos" type="button">Ver atajos de teclado</button>
+        <span class="footer-spacer"></span>
         <button class="btn-secondary" id="btnCancelarSettings">Cancelar</button>
         <button class="btn-primary"   id="btnGuardarSettings">Guardar</button>
       </div>
@@ -552,24 +574,6 @@
   </div>
 
   <!-- ─── Modal gestión de etiquetas ─────────────── -->
-  <div class="modal-overlay" id="modalTagsManager" style="display:none">
-    <div class="modal-box" style="width:420px">
-      <div class="modal-header">
-        <h2>Gestionar etiquetas</h2>
-        <button class="btn-close-modal" id="btnCerrarTagsManager">×</button>
-      </div>
-      <div class="modal-body">
-        <div id="tagsManagerList"></div>
-        <div class="tag-add-row" style="margin-top:12px">
-          <input type="text" id="tmNewTagInput" placeholder="Nueva etiqueta...">
-          <button class="btn-secondary" id="tmBtnAddTag">+ Añadir</button>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-primary" id="btnCerrarTagsManagerOk">Cerrar</button>
-      </div>
-    </div>
-  </div>
 
   <!-- ─── A.6 Barra flotante de selección múltiple ── -->
   <div class="bulk-bar" id="bulkBar" style="display:none">

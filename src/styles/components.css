@@ -1663,6 +1663,65 @@ textarea { resize: vertical; min-height: 72px; }
   font-size: 11px;
 }
 
+/* ─── Ajustes por pestañas ────────────────────────────
+   Con cinco secciones el modal se hacía un scroll interminable. Las pestañas
+   dejan cada bloque a un clic y mantienen el alto estable. */
+.modal-box--ajustes {
+  width: 660px;
+  max-width: calc(100vw - 40px);
+}
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tab {
+  position: relative;
+  padding: 9px 13px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s;
+}
+.settings-tab:hover { color: var(--text); }
+.settings-tab.active { color: var(--text); }
+.settings-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 10px; right: 10px; bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+}
+.settings-panel[hidden] { display: none; }
+/* Alto mínimo para que cambiar de pestaña no dé saltos al modal. */
+.settings-panel { min-height: 232px; }
+
+.modal-footer--ajustes { display: flex; align-items: center; gap: 8px; }
+.footer-spacer { flex: 1; }
+.btn-enlace {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color .15s;
+}
+.btn-enlace:hover { color: var(--accent2); }
+
 /* Lista de tipos de contenido en Ajustes */
 .tipos-lista { display: flex; flex-direction: column; gap: 8px; }
 .tipo-fila {
