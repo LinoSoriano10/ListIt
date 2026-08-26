@@ -492,7 +492,7 @@ export async function abrirBuscarTemporada(serieId) {
     <div class="entrega-add" style="margin-bottom:10px">
       <input class="entrega-add-input" type="text" id="buscarTempInput"
              placeholder="Título, o pega una URL de MyAnimeList…" autocomplete="off">
-      <button class="entrega-add-btn" id="buscarTempBtn" title="Buscar">Buscar</button>
+      <button class="entrega-add-btn entrega-add-btn--texto" id="buscarTempBtn">Buscar</button>
     </div>
     <div id="buscarTempResultados"></div>`;
 

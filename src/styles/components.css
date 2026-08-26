@@ -1432,12 +1432,22 @@ textarea { resize: vertical; min-height: 72px; }
   margin: 0 0 10px;
   line-height: 1.6;
 }
-.entrega-add-mal {
+/* El botón base de añadir es un cuadrado de 30px pensado para un "+": con
+   texto dentro se desborda. Esta variante lo deja crecer a lo ancho. */
+.entrega-add-btn--texto {
   width: auto;
-  padding: 0 10px;
+  min-width: 0;
+  padding: 0 12px;
+  padding-bottom: 0;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.entrega-add-mal {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .4px;
+  padding: 0 10px;
 }
 
 .mal-ya-esta {

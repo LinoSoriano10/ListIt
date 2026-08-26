@@ -133,7 +133,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
         <div class="entrega-add" style="margin-top:10px">
           <input class="entrega-add-input" type="text" id="dhAddSeasonInput" placeholder="Nombre de la nueva temporada...">
           <button class="entrega-add-btn" id="dhAddSeason" title="Añadir temporada vacía">+</button>
-          <button class="entrega-add-btn entrega-add-mal" id="dhBuscarMalUnica"
+          <button class="entrega-add-btn entrega-add-btn--texto entrega-add-mal" id="dhBuscarMalUnica"
                   title="Buscar una temporada o película concreta en MyAnimeList">MAL</button>
         </div>
       </div>
@@ -220,7 +220,7 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
       <div class="entrega-add">
         <input class="entrega-add-input" type="text" id="newEntregaInput" placeholder="Nombre de la entrega...">
         <button class="entrega-add-btn" id="btnAddEntrega" title="Añadir entrega vacía">+</button>
-        <button class="entrega-add-btn entrega-add-mal" id="btnBuscarMalEntrega"
+        <button class="entrega-add-btn entrega-add-btn--texto entrega-add-mal" id="btnBuscarMalEntrega"
                 title="Buscar una temporada o película concreta en MyAnimeList">MAL</button>
       </div>
     </div>
