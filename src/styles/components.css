@@ -1432,6 +1432,36 @@ textarea { resize: vertical; min-height: 72px; }
   margin: 0 0 10px;
   line-height: 1.6;
 }
+/* Lista de tipos de contenido en Ajustes */
+.tipos-lista { display: flex; flex-direction: column; gap: 8px; }
+.tipo-fila {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+}
+.tipo-nombre { font-size: 13px; font-weight: 500; color: var(--text); }
+.tipo-uso {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.tipo-campo {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tipo-campo input[type="number"] { width: 58px; }
+.tipo-fila select { width: 116px; font-size: 11px; }
+.tipo-fila input:disabled { opacity: .4; }
+
 .settings-acciones {
   display: flex;
   gap: 8px;

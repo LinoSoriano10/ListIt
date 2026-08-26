@@ -4,6 +4,7 @@ const { app } = require('electron');
 const { todasCompletas } = require('./lib/season-status');
 const { decidirTransicionPorProgreso } = require('./lib/estado-transiciones');
 const snapshot = require('./lib/snapshot');
+const tipos = require('./lib/tipos');
 
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
 const db = new Database(dbPath);
@@ -620,13 +621,13 @@ function estadisticasGenerales() {
     FROM contenido c
   `).all();
 
-  let minutos = 0;
-  for (const c of items) {
-    const eps = c.ep_entregas > 0 ? c.ep_entregas : (c.episodios_totales || 0);
-    if (c.tipo === 'pelicula') minutos += (eps > 0 ? eps : 1) * 110;
-    else if (c.tipo === 'serie') minutos += eps * 45;
-    else minutos += eps * 24;
-  }
+  // El tiempo lo decide la tabla de tipos, no tres números incrustados aquí: un
+  // manwa se lee y no suma horas de visionado, venga o no de MAL. `excluidas`
+  // viaja a la interfaz porque descartar entradas en silencio haría poco fiable
+  // la cifra de horas.
+  const tiposPorClave = Object.fromEntries(obtenerTipos().map(t => [t.clave, t]));
+  const tiempo  = tipos.resumirTiempo(items, tiposPorClave);
+  const minutos = tiempo.minutos;
 
   const viendo = items.filter(c => c.estado === 'viendo');
 
@@ -643,6 +644,10 @@ function estadisticasGenerales() {
     cobertura: {
       con_mal:      cobertura.con_mal      || 0,
       sin_servicio: cobertura.sin_servicio || 0,
+    },
+    tiempo: {
+      excluidas: tiempo.excluidas,   // entradas cuyo tipo no cuenta como visionado
+      porTipo:   tiempo.porTipo,
     },
   };
 }
@@ -846,6 +851,95 @@ function obtenerActividad(limite = 30) {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+// ── Tipos de contenido ────────────────────────────────────────────────────────
+// Cada tipo declara su unidad, cuánto dura y si cuenta como tiempo de visionado.
+// Antes esos números vivían sueltos dentro de estadisticasGenerales, lo que
+// obligaba a que todo lo que no fuera película o serie contase como anime: un
+// manwa de 400 capítulos sumaba 160 horas que nadie ha visto.
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS tipos_contenido (
+    clave              TEXT PRIMARY KEY,
+    nombre             TEXT NOT NULL,
+    unidad             TEXT    DEFAULT 'episodio',
+    minutos_por_unidad INTEGER DEFAULT 24,
+    unidades_minimas   INTEGER DEFAULT 0,
+    cuenta_tiempo      INTEGER DEFAULT 1,
+    visible            INTEGER DEFAULT NULL,
+    posicion           INTEGER DEFAULT 0
+  )
+`).run();
+
+for (const t of tipos.TIPOS_SEMILLA) {
+  db.prepare(`
+    INSERT OR IGNORE INTO tipos_contenido
+      (clave, nombre, unidad, minutos_por_unidad, unidades_minimas, cuenta_tiempo, posicion)
+    VALUES (@clave, @nombre, @unidad, @minutos_por_unidad, @unidades_minimas, @cuenta_tiempo, @posicion)
+  `).run(t);
+}
+
+// Cualquier `tipo` que exista en los datos pero no en la tabla se registra con
+// los valores por defecto. Así el cálculo nunca se topa con un tipo desconocido
+// y el usuario puede ajustarlo desde Ajustes en vez de verlo contar a ciegas.
+{
+  const huerfanos = db.prepare(`
+    SELECT DISTINCT c.tipo FROM contenido c
+    WHERE c.tipo IS NOT NULL AND c.tipo != ''
+      AND NOT EXISTS (SELECT 1 FROM tipos_contenido t WHERE t.clave = c.tipo)
+  `).all();
+  for (const { tipo } of huerfanos) {
+    db.prepare(`
+      INSERT OR IGNORE INTO tipos_contenido (clave, nombre, posicion) VALUES (?, ?, 99)
+    `).run(tipo, tipo.charAt(0).toUpperCase() + tipo.slice(1));
+  }
+}
+
+// Migración: 'manwa' nació como etiqueta de usuario, no como tipo, así que sus
+// entradas quedaron con tipo 'anime' y contaban como visionado. Se les pone su
+// tipo real. La etiqueta se conserva: las etiquetas anime/serie/pelicula son la
+// representación del tipo en la interfaz y quitarlas rompería el filtrado.
+// Idempotente: solo toca las que aún no tienen el tipo correcto.
+{
+  const movidas = db.prepare(`
+    UPDATE contenido SET tipo = 'manwa'
+    WHERE tipo != 'manwa' AND id IN (
+      SELECT ct.contenido_id FROM contenido_tags ct
+      JOIN tags t ON t.id = ct.tag_id
+      WHERE t.nombre = 'manwa'
+    )
+  `).run().changes;
+  if (movidas > 0) console.log(`[tipos] ${movidas} entrada(s) reclasificadas como manwa`);
+}
+
+function obtenerTipos() {
+  return db.prepare('SELECT * FROM tipos_contenido ORDER BY posicion, clave').all();
+}
+
+function conteosPorTipo() {
+  const filas = db.prepare('SELECT tipo, COUNT(*) AS n FROM contenido GROUP BY tipo').all();
+  return Object.fromEntries(filas.map(f => [f.tipo, f.n]));
+}
+
+/**
+ * Tipos con su recuento de uso, que es lo que la interfaz necesita para decidir
+ * cuáles enseñar sin pedirle nada al usuario.
+ */
+function obtenerTiposConUso() {
+  const conteos = conteosPorTipo();
+  return obtenerTipos().map(t => ({ ...t, entradas: conteos[t.clave] || 0 }));
+}
+
+function actualizarTipo(clave, campos = {}) {
+  const permitidos = ['nombre', 'unidad', 'minutos_por_unidad', 'unidades_minimas', 'cuenta_tiempo', 'visible', 'posicion'];
+  const sets = [];
+  const params = { clave };
+  for (const c of permitidos) {
+    if (campos[c] !== undefined) { sets.push(`${c} = @${c}`); params[c] = campos[c]; }
+  }
+  if (sets.length === 0) return { changes: 0 };
+  return db.prepare(`UPDATE tipos_contenido SET ${sets.join(', ')} WHERE clave = @clave`).run(params);
+}
+
 db.prepare('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)').run();
 
 for (const [k, v] of [['tag_defecto', ''], ['orden_defecto', 'reciente'], ['theme', 'dark']]) {
@@ -1020,6 +1114,9 @@ module.exports = {
   exportarSnapshot,
   importarSnapshot,
   resumenBiblioteca,
+  obtenerTipos,
+  obtenerTiposConUso,
+  actualizarTipo,
   obtenerContenido,
   obtenerPorId,
   guardarContenido,

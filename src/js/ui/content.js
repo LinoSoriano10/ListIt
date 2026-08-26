@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import { renderGrid } from './grid.js';
 import { actualizarContadores } from './contadores.js';
 import { matchAll } from '../lib/search.js';
+import { refrescarTipos } from '../lib/tipos-ui.js';
 
 export function mostrarVista(vista) {
   const grid  = document.getElementById('grid');
@@ -22,6 +23,10 @@ export function mostrarVista(vista) {
 }
 
 export async function cargarContenido(termino = '') {
+  // Se releen los tipos porque su visibilidad depende del uso: crear la primera
+  // serie debe hacer aparecer ese tipo, y borrar la última, desaparecerlo.
+  await refrescarTipos();
+
   const items = await api.getContenido({
     estado: state.filtroEstado,
     tag:    state.filtroTag,

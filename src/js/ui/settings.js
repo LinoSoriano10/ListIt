@@ -3,6 +3,7 @@ import { escapeHtml } from '../lib/escape.js';
 import { toast } from '../lib/toast.js';
 import { mensajeErrorMal } from '../lib/mal-errores.js';
 import { parsearConfigFirebase } from '../lib/firebase-config.js';
+import { invalidarTipos } from '../lib/tipos-ui.js';
 
 export function aplicarTema(tema) {
   if (tema === 'light') document.documentElement.setAttribute('data-theme', 'light');
@@ -34,8 +35,66 @@ async function cargarSettings() {
 
   document.getElementById('settingTheme').value = theme || 'dark';
 
+  await renderTipos();
   await refrescarEstadoMal();
   await refrescarEstadoSync();
+}
+
+// ─── Tipos de contenido ───────────────────────────────────────────────────────
+// Cada tipo declara su unidad, cuánto dura y si cuenta como tiempo de visionado.
+// Es lo que evita que un manwa de 400 capítulos sume 160 horas que nadie ha visto.
+
+async function renderTipos() {
+  const cont = document.getElementById('settingsTipos');
+  if (!cont) return;
+
+  const tipos = await api.tiposObtener();
+
+  cont.innerHTML = tipos.map(t => {
+    const unidad = t.unidad === 'capitulo' ? 'capítulo' : 'episodio';
+    const vis = t.visible === 1 ? 'visible' : t.visible === 0 ? 'oculto' : 'auto';
+    return `
+      <div class="tipo-fila" data-clave="${escapeHtml(t.clave)}">
+        <div class="tipo-nombre">
+          ${escapeHtml(t.nombre)}
+          <span class="tipo-uso">${t.entradas} ${t.entradas === 1 ? 'entrada' : 'entradas'}</span>
+        </div>
+        <label class="tipo-campo" title="Minutos que dura cada ${unidad}">
+          <input type="number" class="tipo-min" min="0" max="600" value="${t.minutos_por_unidad}"
+                 ${t.cuenta_tiempo ? '' : 'disabled'}>
+          <span>min/${unidad}</span>
+        </label>
+        <label class="tipo-campo" title="Si se marca, suma a las horas de visionado">
+          <input type="checkbox" class="tipo-cuenta" ${t.cuenta_tiempo ? 'checked' : ''}>
+          <span>cuenta tiempo</span>
+        </label>
+        <select class="tipo-visible" title="Cuándo mostrar este tipo en la interfaz">
+          <option value="auto"    ${vis === 'auto'    ? 'selected' : ''}>Automático</option>
+          <option value="visible" ${vis === 'visible' ? 'selected' : ''}>Visible</option>
+          <option value="oculto"  ${vis === 'oculto'  ? 'selected' : ''}>Oculto</option>
+        </select>
+      </div>`;
+  }).join('');
+
+  cont.querySelectorAll('.tipo-fila').forEach(fila => {
+    const clave = fila.dataset.clave;
+    const guardar = async (campos) => {
+      await api.tiposActualizar(clave, campos);
+      invalidarTipos();          // la caché del renderer queda obsoleta
+      await renderTipos();
+    };
+
+    fila.querySelector('.tipo-min').addEventListener('change', e =>
+      guardar({ minutos_por_unidad: Math.max(0, parseInt(e.target.value, 10) || 0) }));
+
+    fila.querySelector('.tipo-cuenta').addEventListener('change', e =>
+      guardar({ cuenta_tiempo: e.target.checked ? 1 : 0 }));
+
+    fila.querySelector('.tipo-visible').addEventListener('change', e => {
+      const v = e.target.value;
+      guardar({ visible: v === 'auto' ? null : (v === 'visible' ? 1 : 0) });
+    });
+  });
 }
 
 // ─── Credencial de MyAnimeList ────────────────────────────────────────────────

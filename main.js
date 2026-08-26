@@ -376,6 +376,17 @@ ipcMain.handle('reordenar-entregas', (_, { contenidoId, idsOrdenados }) => {
   return db.reordenarEntregas(contenidoId, idsOrdenados);
 });
 
+// ── Tipos de contenido ────────────────────────────────────────────────────────
+// `obtener` incluye el recuento de uso: la interfaz decide con él qué tipos
+// enseñar, sin que el usuario tenga que configurar nada.
+
+ipcMain.handle('tipos-obtener', () => db.obtenerTiposConUso());
+
+ipcMain.handle('tipos-actualizar', (_, { clave, campos }) => {
+  db.actualizarTipo(clave, campos);
+  return db.obtenerTiposConUso();
+});
+
 // ── Consultas a MyAnimeList ───────────────────────────────────────────────────
 // Las llamadas de red salen del proceso principal, no del renderer: así el
 // Client ID nunca llega a la ventana y la CSP no necesita abrirse a dominios

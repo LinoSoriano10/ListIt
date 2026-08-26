@@ -5,8 +5,7 @@ import { escapeHtml } from '../lib/escape.js';
 import { renderTagsModal } from './tags.js';
 import { cargarContenido } from './content.js';
 import { mostrarDetalle } from './detail.js';
-
-const TIPOS_TAG = ['anime', 'serie', 'pelicula'];
+import { clavesTipoSync, poblarSelectorTipos, tipoPorDefecto } from '../lib/tipos-ui.js';
 
 // ── A.4 Detección de duplicados ──────────────────────────────────────────────
 let dupTimer = null;
@@ -76,7 +75,7 @@ export function agregarNombre() {
 export async function abrirModalNuevo() {
   state.modoModal             = 'nuevo';
   state.tagsModal             = new Set();
-  state.tipoModal             = 'anime';
+  state.tipoModal             = await tipoPorDefecto();
   state.nombresModal          = [];
   state.malDataImportado      = null;
   state.malEntregasPendientes = [];
@@ -85,7 +84,7 @@ export async function abrirModalNuevo() {
   // Pre-seleccionar tipo o etiqueta por defecto
   const tagDefecto = await api.getSetting('tag_defecto');
   if (tagDefecto) {
-    if (TIPOS_TAG.includes(tagDefecto)) {
+    if (clavesTipoSync().includes(tagDefecto)) {
       state.tipoModal = tagDefecto;
     } else {
       const tag = state.tagsDisponibles.find(t => t.nombre === tagDefecto);
@@ -94,7 +93,7 @@ export async function abrirModalNuevo() {
   }
 
   document.getElementById('modalTitulo').value      = '';
-  document.getElementById('modalTipo').value        = state.tipoModal;
+  await poblarSelectorTipos(document.getElementById('modalTipo'), state.tipoModal);
   document.getElementById('modalEstado').value      = 'pendiente';
   document.getElementById('modalDescripcion').value = '';
   document.getElementById('modalImagen').value      = '';
@@ -121,11 +120,13 @@ export async function abrirModalEditar(item) {
   document.getElementById('malInput').value         = '';
   document.getElementById('malResults').innerHTML   = '';
 
-  state.tipoModal = TIPOS_TAG.includes(item.tipo) ? item.tipo : 'anime';
-  document.getElementById('modalTipo').value = state.tipoModal;
+  // Se conserva el tipo de la entrada aunque su tipo esté oculto: editarla no
+  // debe cambiarle el tipo por debajo.
+  state.tipoModal = item.tipo || await tipoPorDefecto();
+  await poblarSelectorTipos(document.getElementById('modalTipo'), state.tipoModal);
 
   const tagsDelItem = await api.getTagsContenido(item.id);
-  state.tagsModal    = new Set(tagsDelItem.filter(t => !TIPOS_TAG.includes(t.nombre)).map(t => t.id));
+  state.tagsModal    = new Set(tagsDelItem.filter(t => !clavesTipoSync().includes(t.nombre)).map(t => t.id));
   state.nombresModal = await api.getNombres(item.id);
   renderTagsModal();
   renderNombresModal();

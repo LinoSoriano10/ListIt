@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { api } from '../api.js';
+import { clavesTipoSync } from '../lib/tipos-ui.js';
 
 export function actualizarTagFilterBar() {
   const bar   = document.getElementById('tagFilterBar');
@@ -12,13 +13,11 @@ export function actualizarTagFilterBar() {
   }
 }
 
-const TIPOS_TAG = ['anime', 'serie', 'pelicula'];
-
 export function renderTagsModal() {
   const area = document.getElementById('modalTagsArea');
   area.innerHTML = '';
   // Los tags de tipo se gestionan con el selector de Tipo, no como etiquetas libres.
-  state.tagsDisponibles.filter(tag => !TIPOS_TAG.includes(tag.nombre)).forEach(tag => {
+  state.tagsDisponibles.filter(tag => !clavesTipoSync().includes(tag.nombre)).forEach(tag => {
     const btn = document.createElement('button');
     btn.className = 'tag-pill' + (state.tagsModal.has(tag.id) ? ' active' : '');
     btn.textContent = tag.nombre;

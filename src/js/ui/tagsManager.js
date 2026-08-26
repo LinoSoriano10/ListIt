@@ -2,7 +2,7 @@ import { state } from '../state.js';
 import { api } from '../api.js';
 import { escapeHtml } from '../lib/escape.js';
 
-const BUILTIN = ['anime', 'serie', 'pelicula'];
+import { clavesTipoSync } from '../lib/tipos-ui.js';
 
 export function abrirTagsManager() {
   document.getElementById('modalTagsManager').style.display = 'flex';
@@ -22,7 +22,7 @@ async function refrescarLista() {
       <span class="tm-nombre" data-id="${t.id}">${escapeHtml(t.nombre)}</span>
       <span class="tm-count" title="${t.n} entradas">${t.n}</span>
       <div class="tm-actions">
-        ${BUILTIN.includes(t.nombre)
+        ${clavesTipoSync().includes(t.nombre)
           ? `<span class="tm-lock" title="Etiqueta predefinida — no se puede renombrar ni eliminar">🔒</span>`
           : `<button class="tm-btn tm-btn-rename" data-id="${t.id}" title="Renombrar">✏</button>
              <button class="tm-btn tm-btn-del" data-id="${t.id}" data-n="${t.n}" data-nombre="${encodeURIComponent(t.nombre)}" title="Eliminar">×</button>`}

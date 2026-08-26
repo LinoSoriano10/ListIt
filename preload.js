@@ -86,6 +86,11 @@ contextBridge.exposeInMainWorld('api', {
   // A.7 Sincronización masiva MAL
   obtenerEntradasConMalId: () => ipcRenderer.invoke('obtener-entradas-con-mal-id'),
 
+  // Tipos de contenido (anime, serie, película, manwa…). Cada uno declara su
+  // unidad, su duración y si cuenta como tiempo de visionado.
+  tiposObtener:    ()               => ipcRenderer.invoke('tipos-obtener'),
+  tiposActualizar: (clave, campos)  => ipcRenderer.invoke('tipos-actualizar', { clave, campos }),
+
   // Consultas a MyAnimeList. El fetch lo hace el proceso principal (API oficial,
   // con Jikan de reserva); aquí solo viaja el resultado ya normalizado.
   // Todas devuelven { ok: true, fuente, datos } o { ok: false, codigo, mensaje }.

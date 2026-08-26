@@ -17,6 +17,7 @@ import { getImageSrc, instalarFallbackImagenes } from './lib/image.js';
 import { instalarMarquee } from './lib/marquee.js';
 import { cargarDashboard } from './ui/dashboard.js';
 import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
+import { cebarTipos } from './lib/tipos-ui.js';
 import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema,
          guardarClientIdMal, borrarClientIdMal,
          activarSync, subirSync, bajarSync, desactivarSync } from './ui/settings.js';
@@ -329,6 +330,10 @@ $('btnExportBd').addEventListener('click', () => api.exportarBd());
 
   // A.6 Inicializar bulk actions (selección múltiple)
   inicializarBulk(() => cargarContenido($('searchBar').value));
+
+  // Los tipos se cargan antes de pintar: el gestor de etiquetas y el modal los
+  // consultan de forma síncrona para separar tipos de etiquetas libres.
+  await cebarTipos();
 
   actualizarTagFilterBar();
   await cargarContenido();
