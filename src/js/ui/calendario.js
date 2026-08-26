@@ -79,7 +79,7 @@ export async function cargarCalendario() {
 
     const items = porDia[i].sort((a, b) => a.fecha_utc - b.fecha_utc);
     const cuerpo = items.length === 0
-      ? '<div class="cal-vacio">—</div>'
+      ? '<div class="cal-vacio">Sin emisiones</div>'
       : items.map(f => tarjeta(f, ahora)).join('');
 
     return `

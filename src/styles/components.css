@@ -1455,29 +1455,35 @@ textarea { resize: vertical; min-height: 72px; }
   margin: 0 0 14px;
   line-height: 1.5;
 }
+/* Una fila por día: en siete columnas las tarjetas quedaban demasiado
+   estrechas para leer el título, y con 130 episodios repartidos la semana no se
+   abarcaba de un vistazo. En horizontal cada tarjeta gana ancho y los días
+   vacíos ocupan una línea en vez de una columna entera. */
 .cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  align-items: start;
 }
 .cal-dia {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
   background: var(--s2);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  min-height: 92px;
+  min-height: 58px;
 }
 .cal-dia--hoy { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .cal-dia-cab {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 7px 9px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 12px;
   background: var(--s3);
-  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
-.cal-dia--hoy .cal-dia-cab { background: linear-gradient(90deg, rgba(124,58,237,0.25), transparent); }
+.cal-dia--hoy .cal-dia-cab { background: linear-gradient(180deg, rgba(124,58,237,0.28), transparent); }
 .cal-dia-nombre {
   font-size: 10px;
   font-weight: 700;
@@ -1485,30 +1491,45 @@ textarea { resize: vertical; min-height: 72px; }
   letter-spacing: .6px;
   color: var(--muted);
 }
-.cal-dia-num { font-size: 12px; font-weight: 700; color: var(--text); }
-.cal-dia-cuerpo { padding: 6px; display: flex; flex-direction: column; gap: 6px; }
-.cal-vacio { font-size: 11px; color: var(--muted); text-align: center; padding: 10px 0; }
+.cal-dia-num { font-size: 19px; font-weight: 800; color: var(--text); line-height: 1; }
+.cal-dia--hoy .cal-dia-num { color: var(--accent2); }
+.cal-dia-cuerpo {
+  padding: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 7px;
+}
+.cal-vacio {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 8px 4px;
+  align-self: center;
+}
 .cal-item {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   padding: 5px;
   border-radius: 7px;
   background: var(--s3);
   cursor: pointer;
   transition: background .15s, transform .15s;
+  /* Ancho fijo para que las tarjetas se alineen en rejilla al envolverse. */
+  width: 232px;
+  flex: 0 0 auto;
 }
 .cal-item:hover { background: var(--s4); transform: translateY(-1px); }
 .cal-item--atrasado { box-shadow: inset 3px 0 0 var(--viendo); }
 .cal-item-img {
-  width: 30px;
-  height: 42px;
+  width: 32px;
+  height: 45px;
   object-fit: cover;
   border-radius: 4px;
   flex-shrink: 0;
 }
-.cal-item-info { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.cal-item-info { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
 .cal-item-tit {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--text);
   line-height: 1.25;
@@ -1538,8 +1559,20 @@ textarea { resize: vertical; min-height: 72px; }
 .cal-marca--proximo   { background: var(--s4); color: var(--muted); }
 .cal-marca--pendiente { background: rgba(16,185,129,0.18); color: var(--viendo); }
 
-@media (max-width: 1100px) {
-  .cal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Con la ventana estrecha la columna del día roba demasiado ancho: se pone
+   arriba y las tarjetas pasan a ocupar toda la fila. */
+@media (max-width: 760px) {
+  .cal-dia { grid-template-columns: minmax(0, 1fr); }
+  .cal-dia-cab {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 10px;
+  }
+  .cal-dia-num { font-size: 14px; }
+  .cal-item { width: 100%; }
 }
 
 /* Mapa de generos */
