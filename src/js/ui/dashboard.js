@@ -175,17 +175,17 @@ function renderDonutServicios(cobertura) {
   const canvas = document.getElementById('donutServicios');
   const leyenda = document.getElementById('donutServiciosLeyenda');
   const btnSync = document.getElementById('dashBtnMalSync');
-  const btnHeader = document.getElementById('btnMalSync');
   if (!canvas) return;
 
   const ctx = canvas.getContext('2d');
   const total = cobertura.con_mal + cobertura.sin_servicio;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Mostrar/ocultar botón de sync masiva según haya entradas con MAL
-  const tieneMal = cobertura.con_mal > 0;
-  if (btnSync)   btnSync.style.display   = tieneMal ? '' : 'none';
-  if (btnHeader) btnHeader.style.display = tieneMal ? '' : 'none';
+  // El botón de esta tarjeta es contextual, así que se oculta si no hay nada que
+  // sincronizar. El de la cabecera no: es la acción principal de MAL y esconder
+  // el único punto de entrada sería peor que abrir un modal que dice que no hay
+  // nada que revisar.
+  if (btnSync) btnSync.style.display = cobertura.con_mal > 0 ? '' : 'none';
 
   if (total === 0) {
     leyenda.innerHTML = '<p style="color:var(--muted);font-size:13px">Sin entradas</p>';

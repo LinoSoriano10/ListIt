@@ -1,8 +1,18 @@
-// Menú "Nuevas temporadas desde MAL" (F2 / detección).
-// Revisa las series con mal_id y detecta secuelas (nuevas temporadas) que aún no
-// están en la biblioteca, siguiendo la cadena de relaciones de Jikan desde la
-// última temporada conocida. El usuario confirma cuáles añadir, porque las
-// relaciones "Sequel" de MAL pueden incluir películas, OVAs o recopilatorios.
+// Actualizar desde MyAnimeList: una sola pasada que refresca las fichas que ya
+// tienes y, de camino, encuentra las temporadas que te faltan.
+//
+// Antes eran dos botones. Se solapaban de verdad: la sincronizacion masiva
+// detectaba secuelas y solo te lo contaba por texto, sin poder anadirlas, y como
+// `relaciones()` del cliente oficial descarga la ficha entera y descarta todo
+// menos las relaciones, recorrer una franquicia traia fichas que la otra pasada
+// volvia a pedir. Ahora hay un unico recorrido con una cache compartida.
+//
+// El usuario confirma cada temporada antes de anadirla: las relaciones de MAL
+// incluyen peliculas y OVAs, y no todas se quieren.
+//
+// Los ids del DOM conservan el prefijo `addSeason` de cuando esto era solo el
+// buscador de temporadas. Renombrarlos no aportaria nada al usuario y si
+// riesgo, asi que se dejan.
 
 import { api } from '../api.js';
 import { state } from '../state.js';
@@ -12,6 +22,8 @@ import { cargarContenido } from './content.js';
 import { mostrarDetalle } from './detail.js';
 import { tituloMAL, codigoEmision } from '../lib/mal-format.js';
 import { mensajeErrorMal } from '../lib/mal-errores.js';
+import { crearCache, dentroDeVentana } from '../lib/mal-cache.js';
+import { recorrerFranquicia, RELACIONES_SEGUIDAS } from '../lib/mal-franquicia.js';
 
 // Ritmo entre peticiones. La API oficial es más permisiva, pero la reserva de
 // Jikan limita a ~3 req/s y el proveedor puede caer a ella en cualquier momento.
@@ -20,15 +32,14 @@ const VENTANA_MS = 7 * 24 * 60 * 60 * 1000; // no recomprobar un anime más de u
 let cancelado    = false;
 let scopeSerieId = null;
 let ignorados    = new Map();   // mal_id -> título de las temporadas ignoradas (restaurables)
-let sequelMap    = {};          // caché de la cadena: mal_id -> mal_id de su secuela
+
+// Relaciones ya conocidas entre pasadas: mal_id -> relaciones podadas.
+// Solo se guardan las de nodos que TIENEN secuela; los que no la tienen son la
+// punta de la franquicia y hay que volver a preguntar por ellos cada vez, que es
+// justo donde aparece una temporada nueva.
+let relacionadosMap = {};
 
 const delay = () => new Promise(r => setTimeout(r, MAL_DELAY_MS));
-
-async function malRelaciones(malId) {
-  const res = await api.malRelaciones(malId);
-  if (!res.ok) throw new Error(mensajeErrorMal(res.codigo, res.mensaje));
-  return res.datos || [];
-}
 
 async function malAnime(malId) {
   const res = await api.malDetalle(malId);
@@ -36,19 +47,45 @@ async function malAnime(malId) {
   return res.datos || null;
 }
 
-// Devuelve el mal_id de la secuela de `malId` (o null). Cachea solo los enlaces
-// positivos: un "sin secuela" no se guarda porque la punta puede recibir una nueva.
-async function sequelDe(malId) {
-  if (sequelMap[malId]) return sequelMap[malId];
-  const rels = await malRelaciones(malId);
-  await delay();
-  const seq  = rels.find(r => r.relation === 'Sequel');
-  const next = seq?.entry?.find(e => e.type === 'anime');
-  if (next) { sequelMap[malId] = next.mal_id; return next.mal_id; }
-  return null;
+/**
+ * Detalle de un anime pasando por la caché de la pasada. Es la ÚNICA vía de
+ * descarga: quien necesite las relaciones las lee de aquí, en vez de pedirlas
+ * por separado a un endpoint que acaba trayendo el mismo objeto entero.
+ */
+function detalleCacheado(cache, malId) {
+  return cache.obtener(malId, async () => {
+    const det = await malAnime(malId);
+    await delay();
+    return det;
+  });
 }
 
-export async function abrirAddSeason(serieIdPreseleccionada = null) {
+// Relaciones que interesan, podadas para que quepan holgadas en el ajuste.
+function podarRelaciones(relaciones) {
+  return (relaciones || []).filter(r => RELACIONES_SEGUIDAS.includes(String(r.relation).toLowerCase()));
+}
+
+/**
+ * Función de relaciones que consume el recorrido de franquicia: consulta lo ya
+ * guardado entre pasadas y, si no, descarga por la caché.
+ */
+function lectorDeRelaciones(cache) {
+  return async (malId) => {
+    if (relacionadosMap[malId]) return relacionadosMap[malId];
+
+    const det  = await detalleCacheado(cache, malId);
+    const rels = podarRelaciones(det?.relations);
+
+    // Solo se persiste si tiene secuela. Un nodo sin ella es la punta de la
+    // cadena y debe volver a consultarse: es donde brota lo nuevo.
+    if (rels.some(r => String(r.relation).toLowerCase() === 'sequel')) {
+      relacionadosMap[malId] = rels;
+    }
+    return rels;
+  };
+}
+
+export async function abrirActualizarMal(serieIdPreseleccionada = null) {
   scopeSerieId = serieIdPreseleccionada;
   cancelado = false;
   document.getElementById('modalAddSeason').style.display = 'flex';
@@ -97,7 +134,7 @@ async function etiquetarNoEmitidasUnaVez() {
   setProgress(null);
 }
 
-export function cerrarAddSeason() {
+export function cerrarActualizarMal() {
   cancelado = true;
   document.getElementById('modalAddSeason').style.display = 'none';
 }
@@ -124,106 +161,120 @@ async function escanear(forzar = false) {
   } catch (_) { ignorados = new Map(); }
   actualizarBotonIgnoradas();
 
-  // Series candidatas: con mal_id y que no sean películas. Todas, o solo una.
-  let items = (await api.getContenido({})).filter(i => i.mal_id && i.tipo !== 'pelicula');
+  // TODAS las entradas con mal_id, películas incluidas: su ficha también se
+  // refresca aunque no tengan temporadas que buscar.
+  let items = (await api.getContenido({})).filter(i => i.mal_id);
   if (scopeSerieId) items = items.filter(i => i.id === scopeSerieId);
 
   if (items.length === 0) {
     setProgress(null);
-    setStatus('No hay series con MyAnimeList para revisar.');
+    setStatus('No hay entradas con MyAnimeList para revisar.');
     return;
   }
 
-  // No re-consultamos un anime más de una vez por semana (una temporada nueva
-  // tarda meses o años). La última comprobación por serie vive en settings.
+  // La ventana de 7 días solo gobierna la BÚSQUEDA DE TEMPORADAS: una temporada
+  // nueva tarda meses. Las fichas se refrescan siempre, porque puntuación y
+  // estado de emisión cambian de semana en semana.
   let mapa = {};
   try { mapa = JSON.parse((await api.getSetting('mal_check_map')) || '{}'); } catch (_) { mapa = {}; }
-  try { sequelMap = JSON.parse((await api.getSetting('mal_sequel_map')) || '{}'); } catch (_) { sequelMap = {}; }
+  try { relacionadosMap = JSON.parse((await api.getSetting('mal_relacionados_map')) || '{}'); }
+  catch (_) { relacionadosMap = {}; }
+
   const ahora       = Date.now();
   const sinThrottle = forzar || scopeSerieId;
-  const aRevisar    = sinThrottle
-    ? items
-    : items.filter(s => ahora - (Date.parse(mapa[s.id]) || 0) > VENTANA_MS);
-  const omitidas    = items.length - aRevisar.length;
-
-  if (aRevisar.length === 0) {
-    setProgress(null);
-    document.getElementById('btnAddSeasonRescan').style.display = '';
-    setStatus('Todo comprobado recientemente. Pulsa «Re-escanear todo» para forzar.');
-    return;
-  }
+  // Las películas no tienen temporadas que recorrer, pero sí ficha que actualizar.
+  const escaneables = items.filter(i => i.tipo !== 'pelicula');
+  const aEscanear   = new Set(
+    (sinThrottle ? escaneables : escaneables.filter(s => !dentroDeVentana(mapa[s.id], ahora, VENTANA_MS)))
+      .map(s => s.id)
+  );
+  const omitidas = escaneables.length - aEscanear.size;
 
   setProgress(0);
   const candidatos = [];
+  const cache      = crearCache();
+  const relaciones = lectorDeRelaciones(cache);
+  const resumen    = { actualizadas: 0, sinCambios: 0, errores: [] };
 
-  for (let i = 0; i < aRevisar.length; i++) {
+  for (let i = 0; i < items.length; i++) {
     if (cancelado) return;
-    const s = aRevisar[i];
-    setProgress(Math.round((i / aRevisar.length) * 100));
-    setStatus(`Revisando ${i + 1}/${aRevisar.length}: ${s.titulo}`);
+    const s = items[i];
+    const escanea = aEscanear.has(s.id);
+    setProgress(Math.round((i / items.length) * 100));
+    setStatus(`${escanea ? 'Revisando' : 'Actualizando'} ${i + 1}/${items.length}: ${s.titulo}`);
 
     let accionable = false;   // (Camino B) candidato que YA emite (no solo anunciado)
     let error      = false;
     try {
-      const entregas = await api.getEntregas(s.id);
-      // El propio contenido es su 1ª temporada → siempre cuenta como poseído (si
-      // no, una entrada de 1 temporada con MAL se ofrecería a sí misma como T2).
-      const owned    = new Set([s.mal_id, ...entregas.map(e => e.mal_id).filter(Boolean)]);
+      // ── Paso 1: refrescar la ficha. Siempre, para todas ──────────────────
+      // El detalle queda en la caché, así que el recorrido de abajo lo reutiliza
+      // en vez de volver a pedirlo.
+      const propio = await detalleCacheado(cache, s.mal_id);
+      if (!propio) throw new Error('Sin datos');
+      const act = await api.actualizarDesdeMal(s.id, propio);
+      if (act.cambios.length > 0) resumen.actualizadas++;
+      else resumen.sinCambios++;
 
-      // (Camino B) Transición: ¿alguna temporada marcada "no emitida" ya empezó a
-      // emitir? Se le quita la marca, pasa a contar y la entrada vuelve de
-      // 'completado' a 'pendiente' (ahora sí hay algo nuevo que ver).
-      for (const e of entregas) {
-        if (cancelado) return;
-        if (e.no_emitido && e.mal_id) {
-          const det = await malAnime(e.mal_id);
-          await delay();
-          if (det && codigoEmision(det.status) !== 'proximamente') {
-            await api.marcarEntregaEmitida(e.id, det.episodes || 0);
-            huboCambioEstado = true;
+      // ── Paso 2: buscar temporadas. Solo si toca y no es película ─────────
+      if (escanea) {
+        const entregas = await api.getEntregas(s.id);
+        // El propio contenido es su 1ª temporada → siempre cuenta como poseído (si
+        // no, una entrada de 1 temporada con MAL se ofrecería a sí misma como T2).
+        const owned = new Set([s.mal_id, ...entregas.map(e => e.mal_id).filter(Boolean)]);
+
+        // (Camino B) Transición: ¿alguna temporada marcada "no emitida" ya empezó
+        // a emitir? Se le quita la marca, pasa a contar y la entrada vuelve de
+        // 'completado' a 'pendiente' (ahora sí hay algo nuevo que ver).
+        for (const e of entregas) {
+          if (cancelado) return;
+          if (e.no_emitido && e.mal_id) {
+            const det = await detalleCacheado(cache, e.mal_id);
+            if (det && codigoEmision(det.status) !== 'proximamente') {
+              await api.marcarEntregaEmitida(e.id, det.episodes || 0);
+              huboCambioEstado = true;
+            }
           }
         }
-      }
 
-      // Recorre TODA la cadena de la franquicia desde su raíz (mal_id del
-      // contenido = 1ª temporada) y ofrece cualquier temporada que no tengas y no
-      // hayas ignorado: así reaparecen las borradas, no solo las nuevas. Las que
-      // ya tienes se saltan pero se sigue la cadena (split-cours, huecos, etc.).
-      let cur     = s.mal_id;
-      let depth   = 0;
-      let tail    = s.mal_id;   // (B) última temporada de la cadena
-      let tailDet = null;       // su detalle MAL, si se llegó a consultar
-      const visto = new Set();
-      while (cur && depth < 20 && !visto.has(cur)) {
-        visto.add(cur);
-        tail = cur; tailDet = null;
+        // Recorre la franquicia entera desde su raíz siguiendo secuelas E
+        // historias paralelas: las películas y las OVAs cuelgan de lado, no
+        // encadenadas, y con la cadena lineal de antes eran inalcanzables.
+        // Ofrece lo que no tengas y no hayas ignorado, así que reaparece
+        // también lo borrado, no solo lo nuevo.
+        const { nodos, espina } = await recorrerFranquicia(s.mal_id, relaciones, {
+          abortado: () => cancelado,
+        });
         if (cancelado) return;
-        if (!owned.has(cur) && !ignorados.has(cur)) {
-          const det = await malAnime(cur);
-          await delay();
-          if (det) {
-            candidatos.push({ serie: s, anime: det });
-            tailDet = det;
-            if (codigoEmision(det.status) !== 'proximamente') accionable = true;
-          }
-        }
-        cur = await sequelDe(cur);
-        depth++;
-      }
 
-      // (B) Marca de emisión de la franquicia = estado de su última temporada.
-      try {
-        const ult = tailDet || await malAnime(tail);
-        if (!tailDet) await delay();
-        if (ult) await api.setEmisionFranquicia(s.id, codigoEmision(ult.status));
-      } catch (_) { /* la marca de emisión es best-effort */ }
-    } catch (_) { error = true; }
+        for (const id of nodos) {
+          if (owned.has(id) || ignorados.has(id)) continue;
+          const det = await detalleCacheado(cache, id);
+          if (!det) continue;
+          candidatos.push({ serie: s, anime: det });
+          if (codigoEmision(det.status) !== 'proximamente') accionable = true;
+        }
+
+        // (B) Marca de emisión de la franquicia = estado de su última TEMPORADA.
+        // Sale de la espina de secuelas a propósito: tomarlo de una película
+        // paralela daría un estado equivocado.
+        try {
+          const ultima = espina[espina.length - 1];
+          const ult = await detalleCacheado(cache, ultima);
+          if (ult) await api.setEmisionFranquicia(s.id, codigoEmision(ult.status));
+        } catch (_) { /* la marca de emisión es best-effort */ }
+      }
+    } catch (err) {
+      error = true;
+      resumen.errores.push(`${s.titulo}: ${err.message || err}`);
+    }
 
     // Tras revisar sin error: si hay una temporada que YA emite se quita la marca
     // para re-revisar siempre (hasta añadirla/ignorarla); si solo hay anunciadas
     // (próximamente) o está limpia, se marca comprobada y se re-consulta dentro de
     // una semana (suficiente para detectar que una anunciada empiece a emitir).
-    if (!error) {
+    // La marca de "comprobado" solo tiene sentido para lo que se escaneo: las
+    // fichas se refrescan siempre y no participan en la ventana.
+    if (!error && escanea) {
       if (accionable) delete mapa[s.id];
       else mapa[s.id] = new Date(ahora).toISOString();
     }
@@ -231,7 +282,7 @@ async function escanear(forzar = false) {
 
   if (cancelado) return;
   await api.setSetting('mal_check_map', JSON.stringify(mapa));
-  await api.setSetting('mal_sequel_map', JSON.stringify(sequelMap));
+  await api.setSetting('mal_relacionados_map', JSON.stringify(relacionadosMap));
 
   setProgress(null);
   document.getElementById('btnAddSeasonRescan').style.display = '';
@@ -241,21 +292,55 @@ async function escanear(forzar = false) {
     await cargarContenido(document.getElementById('searchBar')?.value || '');
     if (state.idActual) mostrarDetalle(state.idActual);
   }
-  renderCandidatos(candidatos, omitidas);
+  renderCandidatos(candidatos, omitidas, resumen, cache.estadisticas());
 }
 
-function renderCandidatos(candidatos, omitidas = 0) {
+/**
+ * Resumen de la parte de fichas, que antes vivía en su propio modal.
+ */
+function resumenFichas(r, stats) {
+  if (!r) return '';
+  const ahorro = stats?.aciertos
+    ? `<div class="malsync-ahorro">${stats.aciertos} petición${stats.aciertos !== 1 ? 'es' : ''} ahorrada${stats.aciertos !== 1 ? 's' : ''} reutilizando lo ya descargado</div>`
+    : '';
+  return `
+    <div class="malsync-result-summary">
+      <div class="malsync-result-card">
+        <div class="malsync-result-num" style="color:var(--viendo)">${r.actualizadas}</div>
+        <div class="malsync-result-label">Fichas actualizadas</div>
+      </div>
+      <div class="malsync-result-card">
+        <div class="malsync-result-num" style="color:var(--muted)">${r.sinCambios}</div>
+        <div class="malsync-result-label">Sin cambios</div>
+      </div>
+      <div class="malsync-result-card">
+        <div class="malsync-result-num" style="color:var(--abandonado)">${r.errores.length}</div>
+        <div class="malsync-result-label">Errores</div>
+      </div>
+    </div>
+    ${ahorro}
+    ${r.errores.length > 0 ? `
+      <div class="malsync-novedades" style="background:rgba(244,63,94,0.08);border-color:rgba(244,63,94,0.3)">
+        <h4 style="color:var(--abandonado)">Errores</h4>
+        <ul>${r.errores.slice(0, 12).map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>
+      </div>` : ''}
+  `;
+}
+
+function renderCandidatos(candidatos, omitidas = 0, resumen = null, stats = null) {
   const results = document.getElementById('addSeasonResults');
+  const cabecera = resumenFichas(resumen, stats);
   const extra = omitidas > 0 ? ` · ${omitidas} ya comprobada${omitidas !== 1 ? 's' : ''} esta semana` : '';
+
   if (candidatos.length === 0) {
     setStatus(`No se han detectado nuevas temporadas${extra}.`);
-    results.innerHTML = '';
+    results.innerHTML = cabecera;
     return;
   }
   const n = candidatos.length;
   setStatus(`${n} nueva${n !== 1 ? 's' : ''} temporada${n !== 1 ? 's' : ''} detectada${n !== 1 ? 's' : ''}${extra}:`);
 
-  results.innerHTML = candidatos.map((c, idx) => {
+  results.innerHTML = cabecera + candidatos.map((c, idx) => {
     const a       = c.anime;
     const img     = a.images?.jpg?.image_url || '';
     const meta    = [a.type, a.year, a.episodes ? a.episodes + ' ep.' : ''].filter(Boolean).join(' · ');
@@ -373,7 +458,7 @@ async function anadirTemporada({ serie, anime }) {
   if (state.idActual === serie.id) mostrarDetalle(serie.id);
 }
 
-export function inicializarAddSeason() {
+export function inicializarActualizarMal() {
   document.getElementById('btnAddSeasonRescan').addEventListener('click', () => escanear(true));
   document.getElementById('btnVerIgnoradas').addEventListener('click', mostrarIgnoradas);
 }

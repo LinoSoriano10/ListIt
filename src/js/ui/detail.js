@@ -11,7 +11,7 @@ import { actualizarContadores } from './contadores.js';
 import { actualizarTagFilterBar } from './tags.js';
 import { abrirModalEditar } from './modal.js';
 import { cargarContenido } from './content.js';
-import { abrirAddSeason } from './add-season.js';
+import { abrirActualizarMal } from './mal-actualizar.js';
 
 export function cerrarDetalle() {
   state.idActual = null;
@@ -426,7 +426,7 @@ export async function mostrarDetalle(id) {
   };
 
   const btnAddTemp = document.getElementById('btnAddTempDetalle');
-  if (btnAddTemp) btnAddTemp.onclick = () => abrirAddSeason(id);
+  if (btnAddTemp) btnAddTemp.onclick = () => abrirActualizarMal(id);
 
   // ── C.3 Actualizar desde MAL ──
   const btnMal = document.getElementById('btnActualizarMAL');

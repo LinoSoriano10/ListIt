@@ -24,8 +24,7 @@ import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema, inicializa
          activarSync, subirSync, bajarSync, desactivarSync } from './ui/settings.js';
 import { cerrarDetalle, mostrarDetalle } from './ui/detail.js';
 import { inicializarBulk, salirSeleccion, refrescarTagsBulk } from './ui/bulk-actions.js';
-import { abrirMalSync, cerrarMalSync } from './ui/mal-sync.js';
-import { abrirAddSeason, cerrarAddSeason, inicializarAddSeason } from './ui/add-season.js';
+import { abrirActualizarMal, cerrarActualizarMal, inicializarActualizarMal } from './ui/mal-actualizar.js';
 import { renderEtiquetas } from './ui/tagsManager.js';
 import { deshacer } from './lib/undo.js';
 import { toast } from './lib/toast.js';
@@ -168,8 +167,7 @@ document.addEventListener('keydown', e => {
 
   if (e.key === 'Escape') {
     if ($('modalAtajos')?.style.display !== 'none')     { cerrarAtajos(); return; }
-    if ($('modalAddSeason')?.style.display !== 'none')  { cerrarAddSeason(); return; }
-    if ($('modalMalSync')?.style.display !== 'none')    { cerrarMalSync(); return; }
+    if ($('modalAddSeason')?.style.display !== 'none')  { cerrarActualizarMal(); return; }
     if ($('modalSettings')?.style.display !== 'none')   { cerrarSettings(); return; }
     if ($('modal').style.display !== 'none')            { cerrarModal(); return; }
     if (state.modoSeleccion)                            { salirSeleccion(); return; }
@@ -233,14 +231,14 @@ $('modalAtajos').addEventListener('click', e => {
   if (e.target === $('modalAtajos')) cerrarAtajos();
 });
 
-// ─── Añadir temporada desde MAL (F2) ───────────────────────
-$('btnAddTemporada').addEventListener('click', () => abrirAddSeason());
-$('btnCerrarAddSeason').addEventListener('click', cerrarAddSeason);
-$('btnCerrarAddSeason2').addEventListener('click', cerrarAddSeason);
+// ─── Actualizar desde MyAnimeList ──────────────────────────
+$('btnActualizarMal').addEventListener('click', () => abrirActualizarMal());
+$('btnCerrarAddSeason').addEventListener('click', cerrarActualizarMal);
+$('btnCerrarAddSeason2').addEventListener('click', cerrarActualizarMal);
 $('modalAddSeason').addEventListener('click', e => {
-  if (e.target === $('modalAddSeason')) cerrarAddSeason();
+  if (e.target === $('modalAddSeason')) cerrarActualizarMal();
 });
-inicializarAddSeason();
+inicializarActualizarMal();
 
 // ─── Panel de detalle redimensionable (B5) ─────────────────
 (() => {
@@ -287,14 +285,8 @@ $('tmNewTagInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') $('tmBtnAddTag').click();
 });
 
-// ─── A.7 Sincronización masiva MAL ─────────────────────────
-$('btnMalSync').addEventListener('click', abrirMalSync);
-$('dashBtnMalSync').addEventListener('click', abrirMalSync);
-$('btnCerrarMalSync').addEventListener('click', cerrarMalSync);
-$('btnCancelarMalSync').addEventListener('click', cerrarMalSync);
-$('modalMalSync').addEventListener('click', e => {
-  if (e.target === $('modalMalSync')) cerrarMalSync();
-});
+// El dashboard lanza la misma pasada que la cabecera.
+$('dashBtnMalSync').addEventListener('click', () => abrirActualizarMal());
 window.__onMalSyncDone = async () => {
   await cargarContenido();
   if (state.vistaActual === 'dashboard') await cargarDashboard();

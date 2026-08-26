@@ -1432,6 +1432,13 @@ textarea { resize: vertical; min-height: 72px; }
   margin: 0 0 10px;
   line-height: 1.6;
 }
+.malsync-ahorro {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  margin: -4px 0 10px;
+}
+
 /* ─── Calendario semanal ──────────────────────────────── */
 .cal-cab {
   display: flex;

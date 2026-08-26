@@ -52,22 +52,13 @@
       </select>
     </div>
 
-    <button class="btn-mal-sync" id="btnAddTemporada" title="Buscar nuevas temporadas de tus series en MAL">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-        <polyline points="2 17 12 22 22 17"/>
-        <polyline points="2 12 12 17 22 12"/>
-      </svg>
-      Temporadas
-    </button>
-
-    <button class="btn-mal-sync" id="btnMalSync" title="Sincronizar entradas con MAL" style="display:none">
+    <button class="btn-mal-sync" id="btnActualizarMal" title="Refresca las fichas y busca temporadas nuevas en MyAnimeList">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <polyline points="23 4 23 10 17 10"/>
         <polyline points="1 20 1 14 7 14"/>
         <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
       </svg>
-      MAL
+      Actualizar desde MAL
     </button>
 
     <button class="btn-export" id="btnExportBd" title="Guardar copia de seguridad (.db)">
@@ -201,7 +192,7 @@
               <canvas id="donutServicios" width="140" height="140"></canvas>
               <div id="donutServiciosLeyenda"></div>
             </div>
-            <button class="btn-secondary dash-mal-sync" id="dashBtnMalSync" style="display:none;width:100%;margin-top:10px">↻ Sincronizar desde MAL</button>
+            <button class="btn-secondary dash-mal-sync" id="dashBtnMalSync" style="display:none;width:100%;margin-top:10px">↻ Actualizar desde MAL</button>
           </div>
         </div>
 
@@ -555,7 +546,7 @@
   <div class="modal-overlay" id="modalAddSeason" style="display:none">
     <div class="modal-box" style="width:560px">
       <div class="modal-header">
-        <h2>Nuevas temporadas desde MAL</h2>
+        <h2>Actualizar desde MyAnimeList</h2>
         <button class="btn-close-modal" id="btnCerrarAddSeason">×</button>
       </div>
       <div class="modal-body">
@@ -594,20 +585,6 @@
   </div>
 
   <!-- ─── A.7 Modal de sincronización MAL ─────────── -->
-  <div class="modal-overlay" id="modalMalSync" style="display:none">
-    <div class="modal-box" style="width:480px">
-      <div class="modal-header">
-        <h2 id="malSyncTitle">Sincronizar desde MAL</h2>
-        <button class="btn-close-modal" id="btnCerrarMalSync">×</button>
-      </div>
-      <div class="modal-body" id="malSyncBody">
-        <!-- Renderizado dinámicamente por mal-sync.js -->
-      </div>
-      <div class="modal-footer" id="malSyncFooter">
-        <button class="btn-secondary" id="btnCancelarMalSync">Cancelar</button>
-      </div>
-    </div>
-  </div>
 
   <script type="module" src="js/main.js"></script>
 </body>
