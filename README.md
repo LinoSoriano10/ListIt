@@ -18,6 +18,10 @@ A desktop app to manage your anime, series and movie watchlist — built with El
 - **MyAnimeList import** — search via the official MAL API (Jikan as automatic fallback), auto-fills title, description, episode count and image
 - **Add seasons from MAL** — search and attach new seasons to an existing series, without duplicate entries
 - **Optional cloud sync** — keep your library in step across computers using your own Firebase project
+- **Weekly airing calendar** — exact per-episode dates from AniList, cached locally so it still works offline
+- **Content types** — each type declares its unit (episode/chapter), its length and whether it counts as watch time; unused types hide themselves
+- **Extended stats** — genres, studios, decades, MAL score distribution, completion rate, longest entries
+- **Genre map** — force-directed graph of your library, drawn on Canvas; click a genre to expand its series
 - **Resizable detail panel** — drag the panel edge to widen it; the width is remembered
 - **Dashboard** — KPIs (total entries, estimated hours), status donut chart, tag bars, activity timeline
 - **Activity log** — tracks created, status changes and season completions
@@ -54,7 +58,9 @@ ListIt/
 │   ├── mal-adaptador.js Official MAL response → Jikan v4 shape (pure)
 │   ├── proveedor-mal.js Official API with Jikan fallback
 │   ├── snapshot.js      Library snapshot: build, validate, hash, compress (pure)
-│   └── firestore-sync.js  Optional Firestore upload/download
+│   ├── firestore-sync.js  Optional Firestore upload/download
+│   ├── anilist.js       AniList GraphQL client (airing calendar)
+│   └── tipos.js         Content types: watch-time rules and visibility (pure)
 ├── src/
 │   ├── index.html       App shell (markup only)
 │   ├── styles/
@@ -178,6 +184,36 @@ You can also save a manual copy with the **Copia de seguridad** button.
 | `contenido_nombres` | Alternative search names |
 | `actividad` | Event log (created, status change, season watched) |
 | `settings` | User preferences (theme, default tag, default order) |
+| `tipos_contenido` | Content types: unit, minutes, whether they count as watch time |
+| `generos` / `contenido_generos` | Genres from MyAnimeList |
+| `emisiones` | Cached airing calendar (per episode). Not synced — rebuildable |
+
+---
+
+## Airing calendar
+
+Episode dates come from [AniList](https://anilist.co), queried by MyAnimeList id
+so no extra mapping table is needed. The official MyAnimeList API only publishes a
+recurring weekly slot (`day_of_the_week` + `start_time`), which breaks as soon as a
+show takes a break — AniList publishes the exact date of every episode.
+
+A full refresh is **two queries** regardless of how many shows you follow, and only
+covers shows that are currently airing and on your Watching/Plan-to-watch lists.
+
+Results are stored locally on purpose. AniList disabled its own API for stability
+reasons in August 2026; if that happens again the calendar goes stale but keeps
+working, instead of breaking. That is the difference between this and scraping.
+
+---
+
+## Genres
+
+Genres arrive with every MyAnimeList lookup and are stored automatically. To fill in
+entries you added before this existed, run **Sincronizar desde MAL** once — the bulk
+sync already walks every entry with a `mal_id`.
+
+Note that MyAnimeList mixes demographics (`Shounen`, `Seinen`) into the genre list.
+That is upstream behaviour, not a bug, and it makes the genre map more interesting.
 
 ---
 
