@@ -36,6 +36,7 @@ const ALTO_LIENZO = 580;
 const LONGITUD_HALO   = 460;   // serie → género desplegado
 const LONGITUD_VECINA = 120;   // serie → sus otros géneros
 const PESO_ACTIVO     = 9;     // cuánto más empuja el género desplegado
+const ESCALA_MINIMA   = 0.9;   // por debajo de esto el grafo se apelmaza
 const RADIO_GENERO_MIN = 15;
 const RADIO_GENERO_MAX = 36;
 const RADIO_SERIE = 7;
@@ -62,11 +63,21 @@ export async function cargarGrafoGeneros() {
   instalarEventos(canvas);
 }
 
-function construir(canvas) {
+// Ajusta la resolucion del lienzo a su tamano real en pantalla. El ancho en CSS
+// es 100%, asi que si el contenedor cambia -al abrir o cerrar el panel de
+// detalle- y no se toca `canvas.width`, el navegador estira el mapa de bits
+// viejo: el grafo se ve grande y borroso, y las coordenadas del raton dejan de
+// cuadrar con lo dibujado.
+function ajustarLienzo(canvas) {
   const ancho = canvas.parentElement.clientWidth || 640;
-  const alto  = ALTO_LIENZO;
   canvas.width  = ancho;
-  canvas.height = alto;
+  canvas.height = ALTO_LIENZO;
+  return ancho;
+}
+
+function construir(canvas) {
+  const ancho = ajustarLienzo(canvas);
+  const alto  = ALTO_LIENZO;
 
   const nodos = datos.generos.map(g => ({ id: `g:${g.id}`, tipo: 'genero', nombre: g.nombre, n: g.n }));
   const enlaces = [];
@@ -139,7 +150,7 @@ function construir(canvas) {
   // una mancha, así que se fija una escala mínima y se explora arrastrando.
   pan = { x: 0, y: 0 };
   zoom = 1;
-  vista = encuadrar(sim, 62, { escalaMinima: generoActivo != null ? 0.9 : 0 });
+  vista = encuadrar(sim, 62, { escalaMinima: generoActivo != null ? ESCALA_MINIMA : 0 });
   dibujar(canvas);
 }
 
@@ -269,10 +280,43 @@ function aEspacioSim(canvas, ev) {
 
 let eventosInstalados = false;
 
+/**
+ * El contenedor cambia de ancho al abrir y cerrar el panel de detalle. Se
+ * reajusta la resolución y se recalcula el encuadre, pero SIN rehacer la
+ * simulación: las posiciones relativas se mantienen, así que el grafo no da un
+ * salto delante del usuario. El desplazamiento y el zoom manuales también se
+ * conservan, porque son decisiones suyas.
+ */
+function observarTamano(canvas) {
+  if (typeof ResizeObserver === 'undefined') return;
+
+  let pendiente = null;
+  const observador = new ResizeObserver(() => {
+    // El observador dispara muchas veces mientras se arrastra el borde del
+    // panel; basta con atender al último de cada fotograma.
+    if (pendiente) cancelAnimationFrame(pendiente);
+    pendiente = requestAnimationFrame(() => {
+      pendiente = null;
+      if (!sim || !vista) return;
+
+      const nuevo = canvas.parentElement.clientWidth || 0;
+      // Con el dashboard oculto el ancho es 0: no hay nada que reajustar.
+      if (nuevo === 0 || nuevo === canvas.width) return;
+
+      ajustarLienzo(canvas);
+      sim.ancho = canvas.width;
+      vista = encuadrar(sim, 62, { escalaMinima: generoActivo != null ? ESCALA_MINIMA : 0 });
+      dibujar(canvas);
+    });
+  });
+  observador.observe(canvas.parentElement);
+}
+
 function instalarEventos(canvas) {
   actualizarLeyenda();
   if (eventosInstalados) return;
   eventosInstalados = true;
+  observarTamano(canvas);
 
   // Arrastrar para desplazarse. Con el género desplegado el grafo se sale del
   // lienzo a propósito —comprimirlo para que quepa es lo que lo volvía una
