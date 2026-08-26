@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { STATUS_COLOR, STATUS_LABEL } from '../lib/colors.js';
 import { getImageSrc } from '../lib/image.js';
 import { escapeHtml } from '../lib/escape.js';
+import { cargarGrafoGeneros } from './grafo-generos.js';
 
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
@@ -28,6 +29,7 @@ export async function cargarDashboard() {
     'Sin años registrados.');
   renderPuntuaciones(ampliadas.puntuaciones);
   renderMasLargas(ampliadas.masLargas);
+  await cargarGrafoGeneros();
 }
 
 // ── Barras horizontales reutilizables ─────────────────────────────────────────

@@ -324,6 +324,10 @@ ipcMain.handle('estadisticas-generales', () => {
   return db.estadisticasGenerales();
 });
 
+ipcMain.handle('grafo-generos', () => {
+  return db.grafoGeneros();
+});
+
 ipcMain.handle('estadisticas-ampliadas', () => {
   return db.estadisticasAmpliadas();
 });

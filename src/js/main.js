@@ -18,6 +18,8 @@ import { instalarMarquee } from './lib/marquee.js';
 import { cargarDashboard } from './ui/dashboard.js';
 import { abrirTagsManager, cerrarTagsManager } from './ui/tagsManager.js';
 import { cebarTipos } from './lib/tipos-ui.js';
+import { cargarCalendario, semanaAnterior, semanaSiguiente, semanaActual,
+         refrescarCalendario } from './ui/calendario.js';
 import { abrirSettings, cerrarSettings, guardarSettings, aplicarTema,
          guardarClientIdMal, borrarClientIdMal,
          activarSync, subirSync, bajarSync, desactivarSync } from './ui/settings.js';
@@ -194,6 +196,18 @@ $('btnDashboard').addEventListener('click', async () => {
   await cargarDashboard();
 });
 
+// ─── Calendario ───────────────────────────────────────────
+$('btnCalendario').addEventListener('click', async () => {
+  document.querySelectorAll('.filter-btn-dashboard').forEach(b => b.classList.remove('active'));
+  $('btnCalendario').classList.add('active');
+  mostrarVista('calendario');
+  await cargarCalendario();
+});
+$('calendarioAnterior').addEventListener('click', semanaAnterior);
+$('calendarioSiguiente').addEventListener('click', semanaSiguiente);
+$('calendarioHoy').addEventListener('click', semanaActual);
+$('calendarioRefrescar').addEventListener('click', refrescarCalendario);
+
 // ─── Settings ──────────────────────────────────────────────
 $('btnSettings').addEventListener('click', abrirSettings);
 $('btnCerrarSettings').addEventListener('click', cerrarSettings);
@@ -337,4 +351,9 @@ $('btnExportBd').addEventListener('click', () => api.exportarBd());
 
   actualizarTagFilterBar();
   await cargarContenido();
+
+  // Refresco silencioso del calendario. Va al final y sin await para no retrasar
+  // el arranque, y si AniList no responde no se avisa: la vista ya explica que
+  // muestra lo último descargado.
+  api.calendarioRefrescar().catch(() => {});
 })();

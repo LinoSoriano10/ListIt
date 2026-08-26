@@ -9,16 +9,16 @@ export function mostrarVista(vista) {
   const grid  = document.getElementById('grid');
   const empty = document.getElementById('emptyState');
   const dash  = document.getElementById('dashboardView');
+  const cal   = document.getElementById('calendarioView');
 
-  if (vista === 'dashboard') {
-    grid.style.display  = 'none';
-    empty.style.display = 'none';
-    dash.style.display  = '';
-  } else {
-    dash.style.display = 'none';
-    grid.style.display = '';
-    // empty visibility gestionada por renderGrid
-  }
+  const esGrid = vista !== 'dashboard' && vista !== 'calendario';
+
+  dash.style.display  = vista === 'dashboard'  ? '' : 'none';
+  cal.style.display   = vista === 'calendario' ? '' : 'none';
+  grid.style.display  = esGrid ? '' : 'none';
+  // La visibilidad de `empty` la gestiona renderGrid cuando toca el grid.
+  if (!esGrid) empty.style.display = 'none';
+
   state.vistaActual = vista;
 }
 

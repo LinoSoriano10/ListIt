@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('api', {
   // Dashboard
   estadisticasGenerales: ()       => ipcRenderer.invoke('estadisticas-generales'),
   estadisticasAmpliadas: ()       => ipcRenderer.invoke('estadisticas-ampliadas'),
+  grafoGeneros:          ()       => ipcRenderer.invoke('grafo-generos'),
   actividadPorMes:       (limite) => ipcRenderer.invoke('actividad-por-mes', limite),
   obtenerActividad:      (limite) => ipcRenderer.invoke('obtener-actividad', limite),
 
