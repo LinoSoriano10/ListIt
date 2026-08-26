@@ -24,8 +24,18 @@ let sim = null;
 let vista = null;          // { escala, dx, dy }
 let generoActivo = null;   // id del género desplegado, o null
 let hover = null;
+let pan = { x: 0, y: 0 };     // desplazamiento manual al arrastrar
+let zoom = 1;                 // multiplicador sobre la escala de encuadre
 
 const ALTO_LIENZO = 580;
+
+// Al desplegar un género, sus series cuelgan de él con un muelle mucho más largo
+// que el que las une a sus otros géneros. Esa diferencia es lo que abre el
+// anillo: como el grafo se reescala para llenar el lienzo, separarlo todo por
+// igual no se notaría.
+const LONGITUD_HALO   = 460;   // serie → género desplegado
+const LONGITUD_VECINA = 120;   // serie → sus otros géneros
+const PESO_ACTIVO     = 9;     // cuánto más empuja el género desplegado
 const RADIO_GENERO_MIN = 15;
 const RADIO_GENERO_MAX = 36;
 const RADIO_SERIE = 7;
@@ -71,12 +81,28 @@ function construir(canvas) {
       const s = porId.get(id);
       if (s) nodos.push({ id: `s:${id}`, tipo: 'serie', nombre: s.titulo, estado: s.estado, serieId: id });
     }
+
+    // El género desplegado empuja mucho más fuerte que el resto: es el centro de
+    // la escena y necesita despejar su alrededor.
+    const idActivo = `g:${generoActivo}`;
+    const activo = nodos.find(n => n.id === idActivo);
+    if (activo) activo.peso = PESO_ACTIVO;
+
     // Se conservan los enlaces de esas series a TODOS sus géneros: así se ve de
     // un vistazo qué comparten con los demás, que es la gracia del grafo.
+    //
+    // Los que van al género desplegado llevan un muelle mucho más largo. Como
+    // encuadrar() reescala para llenar el lienzo, alargarlo todo por igual no
+    // cambiaría nada; lo que abre hueco es esta diferencia, que coloca sus
+    // series en un anillo ancho en vez de pegadas encima.
     for (const e of datos.enlaces) {
-      if (idsSerie.has(e.contenido_id)) {
-        enlaces.push({ origen: `s:${e.contenido_id}`, destino: `g:${e.genero_id}` });
-      }
+      if (!idsSerie.has(e.contenido_id)) continue;
+      const destino = `g:${e.genero_id}`;
+      enlaces.push({
+        origen: `s:${e.contenido_id}`,
+        destino,
+        longitud: destino === idActivo ? LONGITUD_HALO : LONGITUD_VECINA,
+      });
     }
   } else {
     // Vista general: géneros unidos si comparten series, con el grosor según
@@ -104,9 +130,16 @@ function construir(canvas) {
     }
   }
 
-  sim = crearSimulacion({ nodos, enlaces, ancho, alto, semilla: 1234 });
-  estabilizar(sim, 700);
-  vista = encuadrar(sim, 62);
+  // Cuantos más nodos, más repulsión hace falta para que no se apelmacen.
+  const opciones = generoActivo != null ? { repulsion: 16000, distanciaMin: 26 } : {};
+  sim = crearSimulacion({ nodos, enlaces, ancho, alto, semilla: 1234, opciones });
+  // Un grafo grande tarda más en asentarse.
+  estabilizar(sim, nodos.length > 60 ? 1400 : 700);
+  // Con el género desplegado hay demasiados nodos para caber sin convertirse en
+  // una mancha, así que se fija una escala mínima y se explora arrastrando.
+  pan = { x: 0, y: 0 };
+  zoom = 1;
+  vista = encuadrar(sim, 62, { escalaMinima: generoActivo != null ? 0.9 : 0 });
   dibujar(canvas);
 }
 
@@ -116,7 +149,10 @@ function radioDe(n) {
   return RADIO_GENERO_MIN + (n.n / max) * (RADIO_GENERO_MAX - RADIO_GENERO_MIN);
 }
 
-const proyectar = n => ({ x: n.x * vista.escala + vista.dx, y: n.y * vista.escala + vista.dy });
+const proyectar = n => ({
+  x: (n.x * vista.escala + vista.dx) * zoom + pan.x,
+  y: (n.y * vista.escala + vista.dy) * zoom + pan.y,
+});
 
 function dibujar(canvas) {
   const ctx = canvas.getContext('2d');
@@ -225,7 +261,10 @@ function aEspacioSim(canvas, ev) {
   const rect = canvas.getBoundingClientRect();
   const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
   const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
-  return { x: (x - vista.dx) / vista.escala, y: (y - vista.dy) / vista.escala };
+  return {
+    x: (((x - pan.x) / zoom) - vista.dx) / vista.escala,
+    y: (((y - pan.y) / zoom) - vista.dy) / vista.escala,
+  };
 }
 
 let eventosInstalados = false;
@@ -235,23 +274,66 @@ function instalarEventos(canvas) {
   if (eventosInstalados) return;
   eventosInstalados = true;
 
+  // Arrastrar para desplazarse. Con el género desplegado el grafo se sale del
+  // lienzo a propósito —comprimirlo para que quepa es lo que lo volvía una
+  // mancha—, así que hace falta poder moverse por él.
+  let arrastrando = null;
+  let movido = false;
+
+  canvas.addEventListener('mousedown', ev => {
+    arrastrando = { x: ev.clientX - pan.x, y: ev.clientY - pan.y };
+    movido = false;
+  });
+
+  window.addEventListener('mouseup', () => { arrastrando = null; });
+
   canvas.addEventListener('mousemove', ev => {
     if (!sim) return;
+
+    if (arrastrando) {
+      const nx = ev.clientX - arrastrando.x;
+      const ny = ev.clientY - arrastrando.y;
+      // Un clic con un temblor de dos píxeles no debe contar como arrastre, o
+      // sería imposible pulsar un nodo.
+      if (Math.abs(nx - pan.x) > 2 || Math.abs(ny - pan.y) > 2) movido = true;
+      pan = { x: nx, y: ny };
+      canvas.style.cursor = 'grabbing';
+      dibujar(canvas);
+      return;
+    }
+
     const p = aEspacioSim(canvas, ev);
     const n = nodoEn(sim, p.x, p.y, x => radioDe(x) + 4);
     if (n !== hover) {
       hover = n;
-      canvas.style.cursor = n ? 'pointer' : 'default';
+      canvas.style.cursor = n ? 'pointer' : (vista.desborda ? 'grab' : 'default');
       dibujar(canvas);
     }
   });
 
+  // Rueda para acercar y alejar, con el puntero como centro para que no se
+  // escape lo que se está mirando.
+  canvas.addEventListener('wheel', ev => {
+    if (!sim) return;
+    ev.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const cx = (ev.clientX - rect.left) * (canvas.width / rect.width);
+    const cy = (ev.clientY - rect.top) * (canvas.height / rect.height);
+
+    const anterior = zoom;
+    zoom = Math.min(Math.max(zoom * (ev.deltaY < 0 ? 1.12 : 1 / 1.12), 0.4), 4);
+    const factor = zoom / anterior;
+    pan = { x: cx - (cx - pan.x) * factor, y: cy - (cy - pan.y) * factor };
+    dibujar(canvas);
+  }, { passive: false });
+
   canvas.addEventListener('mouseleave', () => {
+    arrastrando = null;
     if (hover) { hover = null; dibujar(canvas); }
   });
 
   canvas.addEventListener('click', ev => {
-    if (!sim) return;
+    if (!sim || movido) { movido = false; return; }
     const p = aEspacioSim(canvas, ev);
     const n = nodoEn(sim, p.x, p.y, x => radioDe(x) + 4);
     if (!n) return;
@@ -294,7 +376,8 @@ function actualizarLeyenda() {
       <b>${escapeHtml(g?.nombre || '')}</b> · ${g?.n || 0} entradas<br>
       <span class="grafo-clave"><i class="grafo-punto grafo-punto--serie"></i>Serie</span>
       Pasa el ratón para ver el título y pulsa para abrir su ficha.
-      Las líneas hacia otros géneros son los que también tiene.`;
+      <b>Arrastra para moverte</b> y usa la rueda para acercar: con tantas series
+      el grafo se sale del lienzo a propósito, comprimirlo lo volvía ilegible.`;
     if (volver) volver.style.display = '';
   }
 }

@@ -74,6 +74,10 @@ export function paso(sim) {
 
   // Repulsión entre todos los pares. Es O(n²), pero con decenas de nodos —que es
   // lo que se muestra a la vez— resulta imperceptible y evita complicarlo.
+  //
+  // `peso` permite que un nodo empuje más fuerte que el resto. Se usa para el
+  // género desplegado: al ser el centro de la escena necesita despejar su
+  // alrededor, o sus series se le pegan encima.
   for (let i = 0; i < nodos.length; i++) {
     for (let j = i + 1; j < nodos.length; j++) {
       const a = nodos[i], b = nodos[j];
@@ -85,19 +89,23 @@ export function paso(sim) {
         d = cfg.distanciaMin;
         if (dx === 0 && dy === 0) { dx = (i - j) || 1; dy = 1; }
       }
-      const f = cfg.repulsion / (d * d);
+      const f = cfg.repulsion * (a.peso || 1) * (b.peso || 1) / (d * d);
       const ux = dx / d, uy = dy / d;
       a.fx += ux * f; a.fy += uy * f;
       b.fx -= ux * f; b.fy -= uy * f;
     }
   }
 
-  // Muelles de las aristas.
+  // Muelles de las aristas. Cada una puede pedir su propia distancia en reposo:
+  // encuadrar() reescala el resultado para llenar el lienzo, así que separarlo
+  // todo por igual no cambia nada de lo que se ve. Lo que sí abre hueco es que
+  // unas aristas sean mucho más largas que otras.
   for (const e of aristas) {
     const a = sim.porId.get(e.origen), b = sim.porId.get(e.destino);
     const dx = b.x - a.x, dy = b.y - a.y;
     const d = Math.hypot(dx, dy) || 0.01;
-    const f = (d - cfg.longitud) * cfg.rigidez;
+    const reposo = Number.isFinite(e.longitud) ? e.longitud : cfg.longitud;
+    const f = (d - reposo) * cfg.rigidez;
     const ux = dx / d, uy = dy / d;
     a.fx += ux * f; a.fy += uy * f;
     b.fx -= ux * f; b.fy -= uy * f;
@@ -150,8 +158,9 @@ export function nodoEn(sim, x, y, radioDe) {
  * Encaja el grafo en el lienzo dejando un margen, para que no quede pegado a
  * los bordes ni ocupando solo una esquina.
  */
-export function encuadrar(sim, margen = 40) {
-  if (sim.nodos.length === 0) return { escala: 1, dx: 0, dy: 0 };
+export function encuadrar(sim, margen = 40, opciones = {}) {
+  const { escalaMinima = 0, escalaMaxima = 2.5 } = opciones;
+  if (sim.nodos.length === 0) return { escala: 1, dx: 0, dy: 0, desborda: false };
 
   const xs = sim.nodos.map(n => n.x), ys = sim.nodos.map(n => n.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
@@ -159,15 +168,22 @@ export function encuadrar(sim, margen = 40) {
 
   const anchoUtil = sim.ancho - margen * 2;
   const altoUtil  = sim.alto  - margen * 2;
-  const escala = Math.min(
+  const ajuste = Math.min(
     anchoUtil / Math.max(maxX - minX, 1),
     altoUtil  / Math.max(maxY - minY, 1),
-    2.5,
+    escalaMaxima,
   );
+
+  // Con muchos nodos, encajarlo todo obliga a una escala tan pequeña que se
+  // convierte en una mancha: por muy separada que esté la simulación, el
+  // encuadre la vuelve a comprimir. Con un mínimo, el grafo se sale del lienzo
+  // y se explora arrastrando, que es preferible a verlo apelmazado.
+  const escala = Math.max(ajuste, escalaMinima);
 
   return {
     escala,
     dx: margen - minX * escala + (anchoUtil - (maxX - minX) * escala) / 2,
     dy: margen - minY * escala + (altoUtil - (maxY - minY) * escala) / 2,
+    desborda: escala > ajuste,
   };
 }

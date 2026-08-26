@@ -152,6 +152,81 @@ describe('encuadrar', () => {
 
   it('no revienta con el grafo vacío', () => {
     const s = crearSimulacion({ nodos: [], enlaces: [] });
-    expect(encuadrar(s)).toEqual({ escala: 1, dx: 0, dy: 0 });
+    expect(encuadrar(s)).toEqual({ escala: 1, dx: 0, dy: 0, desborda: false });
+  });
+
+  it('con escala mínima deja que el grafo se salga del lienzo', () => {
+    // Encajar 200 nodos en un lienzo obliga a una escala tan pequeña que el
+    // grafo se vuelve una mancha: por muy separada que esté la simulación, el
+    // encuadre la comprime igual. Con un mínimo se desborda y se explora
+    // arrastrando, que es preferible.
+    const nodos = Array.from({ length: 200 }, (_, i) => ({ id: i }));
+    const s = crearSimulacion({ nodos, enlaces: [], ancho: 400, alto: 300 });
+    estabilizar(s, 200);
+
+    const ajustado = encuadrar(s, 40);
+    const conMinimo = encuadrar(s, 40, { escalaMinima: 0.9 });
+
+    expect(ajustado.desborda).toBe(false);
+    expect(conMinimo.escala).toBeGreaterThanOrEqual(0.9);
+    expect(conMinimo.escala).toBeGreaterThan(ajustado.escala);
+    expect(conMinimo.desborda).toBe(true);
+  });
+
+  it('la escala mínima no encoge un grafo que ya cabía', () => {
+    const s = grafito();
+    estabilizar(s, 400);
+    const sinMinimo = encuadrar(s, 40);
+    const conMinimo = encuadrar(s, 40, { escalaMinima: 0.5 });
+    expect(conMinimo.escala).toBe(sinMinimo.escala);
+    expect(conMinimo.desborda).toBe(false);
+  });
+});
+
+describe('muelles y pesos por elemento', () => {
+  it('una arista con longitud propia separa más que las demás', () => {
+    // Es lo que abre el anillo alrededor del género desplegado: alargarlo todo
+    // por igual no serviría, porque el encuadre lo reescala de vuelta.
+    const nodos = [{ id: 'c' }, { id: 'a' }, { id: 'b' }];
+    const s = crearSimulacion({
+      nodos,
+      enlaces: [
+        { origen: 'c', destino: 'a', longitud: 400 },
+        { origen: 'c', destino: 'b' },
+      ],
+      ancho: 900, alto: 900, semilla: 5,
+    });
+    estabilizar(s, 800);
+    const c = s.porId.get('c');
+    const dist = id => Math.hypot(s.porId.get(id).x - c.x, s.porId.get(id).y - c.y);
+    expect(dist('a')).toBeGreaterThan(dist('b') * 1.5);
+  });
+
+  it('un nodo con peso empuja más fuerte a los demás', () => {
+    const crear = (peso) => {
+      const s = crearSimulacion({
+        nodos: [{ id: 'centro', peso }, { id: 'x' }, { id: 'y' }],
+        enlaces: [{ origen: 'centro', destino: 'x' }, { origen: 'centro', destino: 'y' }],
+        ancho: 900, alto: 900, semilla: 3,
+      });
+      estabilizar(s, 800);
+      const c = s.porId.get('centro');
+      return Math.hypot(s.porId.get('x').x - c.x, s.porId.get('x').y - c.y);
+    };
+    expect(crear(9)).toBeGreaterThan(crear(1));
+  });
+
+  it('sin longitud propia se usa la de la configuración', () => {
+    const s = crearSimulacion({
+      nodos: [{ id: 1 }, { id: 2 }],
+      enlaces: [{ origen: 1, destino: 2 }],
+      ancho: 600, alto: 600,
+    });
+    estabilizar(s, 600);
+    const d = Math.hypot(s.nodos[0].x - s.nodos[1].x, s.nodos[0].y - s.nodos[1].y);
+    // La distancia en reposo por defecto es 150; se admite holgura por el
+    // centrado, que tira de ambos hacia el medio.
+    expect(d).toBeGreaterThan(80);
+    expect(d).toBeLessThan(220);
   });
 });
