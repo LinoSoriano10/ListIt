@@ -24,6 +24,10 @@
   --pendiente:  #5a6480;
   --en_pausa:   #f59e0b;
   --abandonado: #f43f5e;
+
+  /* Grafo de generos: las series se pintan en azul para distinguirse de los
+     generos, que van en el morado de la marca. */
+  --grafo-serie: #38bdf8;
 }
 
 /* ─── Tema claro ──────────────────────────────────────── */
@@ -45,6 +49,7 @@
   --pendiente:  #6b7280;
   --en_pausa:   #d97706;
   --abandonado: #e11d48;
+  --grafo-serie: #0284c7;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

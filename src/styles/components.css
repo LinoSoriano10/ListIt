@@ -1594,8 +1594,28 @@ textarea { resize: vertical; min-height: 72px; }
   font-size: 11px;
   color: var(--muted);
   margin-top: 8px;
-  line-height: 1.5;
+  line-height: 1.7;
 }
+.grafo-leyenda b { color: var(--text); }
+.grafo-clave {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 8px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 10px;
+  background: var(--s3);
+  color: var(--text);
+  font-weight: 600;
+}
+.grafo-punto {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.grafo-punto--genero { background: var(--accent); }
+.grafo-punto--serie  { background: var(--grafo-serie); }
 
 /* Estadísticas ampliadas del dashboard */
 .dash-vacio {

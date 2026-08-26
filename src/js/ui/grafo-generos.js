@@ -25,9 +25,10 @@ let vista = null;          // { escala, dx, dy }
 let generoActivo = null;   // id del género desplegado, o null
 let hover = null;
 
-const RADIO_GENERO_MIN = 12;
-const RADIO_GENERO_MAX = 30;
-const RADIO_SERIE = 5;
+const ALTO_LIENZO = 580;
+const RADIO_GENERO_MIN = 15;
+const RADIO_GENERO_MAX = 36;
+const RADIO_SERIE = 7;
 
 export async function cargarGrafoGeneros() {
   const canvas = document.getElementById('grafoGeneros');
@@ -53,7 +54,7 @@ export async function cargarGrafoGeneros() {
 
 function construir(canvas) {
   const ancho = canvas.parentElement.clientWidth || 640;
-  const alto  = 420;
+  const alto  = ALTO_LIENZO;
   canvas.width  = ancho;
   canvas.height = alto;
 
@@ -104,8 +105,8 @@ function construir(canvas) {
   }
 
   sim = crearSimulacion({ nodos, enlaces, ancho, alto, semilla: 1234 });
-  estabilizar(sim, 500);
-  vista = encuadrar(sim, 46);
+  estabilizar(sim, 700);
+  vista = encuadrar(sim, 62);
   dibujar(canvas);
 }
 
@@ -142,46 +143,80 @@ function dibujar(canvas) {
 
     if (n.tipo === 'genero') {
       const activo = generoActivo != null && n.id === `g:${generoActivo}`;
+      const radio = Math.max(r, 10);
+
       ctx.fillStyle = activo ? (css('--accent2') || '#a855f7') : (css('--accent') || '#7c3aed');
       ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(r, 8), 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, radio, 0, Math.PI * 2);
       ctx.fill();
 
       if (esHover || activo) {
         ctx.strokeStyle = css('--text') || '#eeeef8';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
       }
 
-      ctx.fillStyle    = css('--text') || '#eeeef8';
-      ctx.font         = '11px system-ui';
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(n.nombre, p.x, p.y + Math.max(r, 8) + 3);
-    } else {
-      ctx.fillStyle = esHover
-        ? (css('--text') || '#eeeef8')
-        : (css('--muted') || '#7070a0');
+      // Cuántas entradas tiene, dentro del círculo: hace explícito lo que ya
+      // dice el tamaño y evita tener que pasar el ratón para saberlo.
+      if (radio >= 15) {
+        ctx.fillStyle    = '#fff';
+        ctx.font         = `bold ${Math.round(radio * 0.62)}px system-ui`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(n.n, p.x, p.y);
+      }
+
+      // El nombre va sobre una banda del color del fondo para que no se pierda
+      // entre las aristas que pasan por detrás.
+      ctx.font = 'bold 12px system-ui';
+      const anchoTexto = ctx.measureText(n.nombre).width;
+      ctx.fillStyle = css('--surface') || '#111120';
+      ctx.globalAlpha = 0.82;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, esHover ? r + 2 : r, 0, Math.PI * 2);
+      ctx.roundRect(p.x - anchoTexto / 2 - 5, p.y + radio + 4, anchoTexto + 10, 16, 4);
       ctx.fill();
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle    = css('--text') || '#eeeef8';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(n.nombre, p.x, p.y + radio + 12);
+    } else {
+      // Azul, para que las series destaquen frente al morado de los géneros.
+      // En gris se confundían con las aristas.
+      const azul = css('--grafo-serie') || '#38bdf8';
+      ctx.fillStyle = azul;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, esHover ? r + 3 : r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = esHover ? (css('--text') || '#eeeef8') : (css('--surface') || '#111120');
+      ctx.lineWidth = esHover ? 2.5 : 1.5;
+      ctx.stroke();
     }
   }
 
-  // El título de la serie bajo el cursor, encima de todo lo demás.
-  if (hover && hover.tipo === 'serie') {
+  // Emergente del nodo bajo el cursor, encima de todo lo demás.
+  if (hover) {
     const p = proyectar(hover);
-    ctx.font = '11px system-ui';
-    const texto = hover.nombre;
-    const w = ctx.measureText(texto).width + 10;
+    const texto = hover.tipo === 'serie'
+      ? hover.nombre
+      : `${hover.nombre} · ${hover.n} ${hover.n === 1 ? 'entrada' : 'entradas'}`;
+
+    ctx.font = '12px system-ui';
+    const w = ctx.measureText(texto).width + 14;
+    const alturaNodo = radioDe(hover) * (hover.tipo === 'genero' ? Math.min(vista.escala, 1) : 1);
+    const y = p.y - Math.max(alturaNodo, 10) - 24;
+
     ctx.fillStyle = css('--s4') || '#2e2e48';
     ctx.beginPath();
-    ctx.roundRect(p.x - w / 2, p.y - 26, w, 18, 4);
+    ctx.roundRect(Math.min(Math.max(p.x - w / 2, 2), canvas.width - w - 2), y, w, 21, 5);
     ctx.fill();
+
     ctx.fillStyle    = css('--text') || '#eeeef8';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(texto, p.x, p.y - 17);
+    ctx.fillText(texto, Math.min(Math.max(p.x, w / 2 + 2), canvas.width - w / 2 - 2), y + 11);
   }
 }
 
@@ -247,13 +282,19 @@ function actualizarLeyenda() {
   if (!el) return;
 
   if (generoActivo == null) {
-    el.innerHTML = `<span>${datos.generos.length} géneros · el tamaño es cuántas entradas tiene `
-      + `· una línea significa que comparten series</span>`;
+    el.innerHTML = `
+      <b>Pulsa un género para ver sus series.</b><br>
+      <span class="grafo-clave"><i class="grafo-punto grafo-punto--genero"></i>Género</span>
+      El número es cuántas entradas tiene, y el círculo crece con él.
+      Una línea entre dos géneros significa que comparten series.`;
     if (volver) volver.style.display = 'none';
   } else {
     const g = datos.generos.find(x => x.id === generoActivo);
-    el.innerHTML = `<span>Mostrando <b>${escapeHtml(g?.nombre || '')}</b> `
-      + `(${g?.n || 0} entradas) · pasa el ratón para ver títulos, pulsa para abrir la ficha</span>`;
+    el.innerHTML = `
+      <b>${escapeHtml(g?.nombre || '')}</b> · ${g?.n || 0} entradas<br>
+      <span class="grafo-clave"><i class="grafo-punto grafo-punto--serie"></i>Serie</span>
+      Pasa el ratón para ver el título y pulsa para abrir su ficha.
+      Las líneas hacia otros géneros son los que también tiene.`;
     if (volver) volver.style.display = '';
   }
 }

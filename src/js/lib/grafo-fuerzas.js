@@ -9,13 +9,18 @@
 // muelles, una fuerza suave los atrae al centro para que no se escapen, y el
 // rozamiento hace que el conjunto acabe quieto en vez de oscilar para siempre.
 
+// Valores tirando a separados: con los anteriores el grafo salía apelotonado y
+// las etiquetas de género se pisaban entre sí. Como encuadrar() reescala para
+// llenar el lienzo, lo que importa no es la escala absoluta sino la proporción
+// entre repulsión y longitud del muelle, que es la que decide cuánto aire queda
+// entre nodos.
 const POR_DEFECTO = {
-  repulsion:   2400,   // fuerza con que se separan dos nodos
+  repulsion:   9000,   // fuerza con que se separan dos nodos
   rigidez:     0.012,  // cuánto tira cada arista
-  longitud:    90,     // distancia en reposo de una arista
-  centrado:    0.006,  // atracción hacia el centro
+  longitud:    150,    // distancia en reposo de una arista
+  centrado:    0.010,  // atracción hacia el centro
   rozamiento:  0.86,   // 0 = se para en seco, 1 = no pierde energía nunca
-  distanciaMin: 24,    // evita fuerzas enormes cuando dos nodos casi se tocan
+  distanciaMin: 40,    // evita fuerzas enormes cuando dos nodos casi se tocan
 };
 
 // Generador reproducible: sin él, cada apertura del grafo daría una disposición
