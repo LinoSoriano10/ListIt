@@ -11,9 +11,18 @@ export function aplicarTema(tema) {
   else document.documentElement.removeAttribute('data-theme');
 }
 
+// Configuracion siempre se abre por aqui salvo que se pida otra pestana.
+const PANEL_INICIAL = 'general';
+
 export function abrirSettings(panel) {
   cargarSettings();
-  if (panel) mostrarPanel(panel);
+
+  // Solo se acepta una cadena. Enganchar esta función directamente a un
+  // addEventListener le colaba el MouseEvent como primer argumento, y entonces
+  // mostrarPanel() no encontraba ninguna coincidencia y ocultaba los cinco
+  // paneles: el modal se abría en blanco hasta pulsar una pestaña.
+  mostrarPanel(typeof panel === 'string' ? panel : PANEL_INICIAL);
+
   document.getElementById('modalSettings').style.display = 'flex';
 }
 

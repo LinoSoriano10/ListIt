@@ -203,7 +203,7 @@ $('calendarioHoy').addEventListener('click', semanaActual);
 $('calendarioRefrescar').addEventListener('click', refrescarCalendario);
 
 // ─── Settings ──────────────────────────────────────────────
-$('btnSettings').addEventListener('click', abrirSettings);
+$('btnSettings').addEventListener('click', () => abrirSettings());
 $('btnCerrarSettings').addEventListener('click', cerrarSettings);
 $('btnCancelarSettings').addEventListener('click', cerrarSettings);
 $('btnGuardarSettings').addEventListener('click', guardarSettings);
