@@ -11,7 +11,7 @@ import { actualizarContadores } from './contadores.js';
 import { actualizarTagFilterBar } from './tags.js';
 import { abrirModalEditar } from './modal.js';
 import { cargarContenido } from './content.js';
-import { abrirActualizarMal } from './mal-actualizar.js';
+import { abrirActualizarMal, abrirBuscarTemporada } from './mal-actualizar.js';
 
 export function cerrarDetalle() {
   state.idActual = null;
@@ -132,7 +132,9 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
         </div>
         <div class="entrega-add" style="margin-top:10px">
           <input class="entrega-add-input" type="text" id="dhAddSeasonInput" placeholder="Nombre de la nueva temporada...">
-          <button class="entrega-add-btn" id="dhAddSeason" title="Añadir temporada">+</button>
+          <button class="entrega-add-btn" id="dhAddSeason" title="Añadir temporada vacía">+</button>
+          <button class="entrega-add-btn entrega-add-mal" id="dhBuscarMalUnica"
+                  title="Buscar una temporada o película concreta en MyAnimeList">MAL</button>
         </div>
       </div>
     `;
@@ -158,6 +160,8 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
       refresh(r?.reanudado);
     };
     document.getElementById('dhAddSeason').addEventListener('click', dhAddSeasonUnica);
+    document.getElementById('dhBuscarMalUnica')
+      .addEventListener('click', () => abrirBuscarTemporada(contenidoId));
     document.getElementById('dhAddSeasonInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') dhAddSeasonUnica();
     });
@@ -215,7 +219,9 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
       </div>
       <div class="entrega-add">
         <input class="entrega-add-input" type="text" id="newEntregaInput" placeholder="Nombre de la entrega...">
-        <button class="entrega-add-btn" id="btnAddEntrega">+</button>
+        <button class="entrega-add-btn" id="btnAddEntrega" title="Añadir entrega vacía">+</button>
+        <button class="entrega-add-btn entrega-add-mal" id="btnBuscarMalEntrega"
+                title="Buscar una temporada o película concreta en MyAnimeList">MAL</button>
       </div>
     </div>
   `;
@@ -270,6 +276,8 @@ async function cargarEntregas(contenidoId, container, tipo = 'anime', tituloCont
     refresh(r?.reanudado);
   };
   document.getElementById('btnAddEntrega').addEventListener('click', addEntrega);
+  document.getElementById('btnBuscarMalEntrega')
+    .addEventListener('click', () => abrirBuscarTemporada(contenidoId));
   document.getElementById('newEntregaInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') addEntrega();
   });

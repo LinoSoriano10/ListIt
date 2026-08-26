@@ -89,6 +89,8 @@ export async function abrirActualizarMal(serieIdPreseleccionada = null) {
   scopeSerieId = serieIdPreseleccionada;
   cancelado = false;
   document.getElementById('modalAddSeason').style.display = 'flex';
+  // El modal se comparte con la búsqueda manual, que le cambia el título.
+  document.getElementById('addSeasonTitulo').textContent = 'Actualizar desde MyAnimeList';
   await etiquetarNoEmitidasUnaVez();
   await escanear();
 }
@@ -456,6 +458,105 @@ async function anadirTemporada({ serie, anime }) {
   toast.success(`Añadida a «${serie.titulo}»: ${tituloMAL(anime)}${noEmitido ? ' (próximamente)' : ''}`);
   await cargarContenido(document.getElementById('searchBar')?.value || '');
   if (state.idActual === serie.id) mostrarDetalle(serie.id);
+}
+
+// ─── Añadir una temporada concreta buscándola a mano ─────────────────────────
+//
+// El escaneo automático solo encuentra lo que MyAnimeList relaciona, y no
+// siempre relaciona todo. Esto permite buscar cualquier entrada y engancharla
+// como temporada de una serie.
+//
+// La otra vía —el buscador de MAL dentro de la edición— no sirve para esto: está
+// pensada para CREAR una entrada, así que sobrescribe título, imagen y campos de
+// la que estés editando. Aquí solo se añade una entrega y la entrada padre no se
+// toca.
+
+export async function abrirBuscarTemporada(serieId) {
+  const serie = await api.getDetalle(serieId);
+  if (!serie) return;
+
+  // Lo que ya tiene esta serie, para no ofrecer duplicados.
+  const entregas = await api.getEntregas(serieId);
+  const owned = new Set([serie.mal_id, ...entregas.map(e => e.mal_id).filter(Boolean)]);
+
+  cancelado = false;
+  document.getElementById('modalAddSeason').style.display = 'flex';
+  document.getElementById('addSeasonTitulo').textContent = 'Añadir temporada desde MAL';
+  document.getElementById('btnAddSeasonRescan').style.display = 'none';
+  document.getElementById('btnVerIgnoradas').style.display = 'none';
+  setProgress(null);
+  setStatus(`Busca la temporada o película que quieras añadir a «${serie.titulo}».`);
+
+  const results = document.getElementById('addSeasonResults');
+  results.innerHTML = `
+    <div class="entrega-add" style="margin-bottom:10px">
+      <input class="entrega-add-input" type="text" id="buscarTempInput"
+             placeholder="Título, o pega una URL de MyAnimeList…" autocomplete="off">
+      <button class="entrega-add-btn" id="buscarTempBtn" title="Buscar">Buscar</button>
+    </div>
+    <div id="buscarTempResultados"></div>`;
+
+  const input = document.getElementById('buscarTempInput');
+  const zona  = document.getElementById('buscarTempResultados');
+
+  const buscar = async () => {
+    const q = input.value.trim();
+    if (!q) return;
+    zona.innerHTML = '<div class="mal-loading">Buscando…</div>';
+
+    // Se admite pegar la URL de MAL: es la vía fiable cuando el título es
+    // ambiguo o la búsqueda no lo saca.
+    const url = q.match(/myanimelist\.net\/anime\/(\d+)/);
+    const res = url ? await api.malDetalle(url[1]) : await api.malBuscar(q, 10);
+
+    if (!res.ok) {
+      zona.innerHTML = `<div class="mal-empty">${escapeHtml(mensajeErrorMal(res.codigo, res.mensaje))}</div>`;
+      return;
+    }
+    const lista = url ? (res.datos ? [res.datos] : []) : (res.datos || []);
+    if (lista.length === 0) {
+      zona.innerHTML = '<div class="mal-empty">Sin resultados</div>';
+      return;
+    }
+    renderBusqueda(zona, lista, serie, owned);
+  };
+
+  document.getElementById('buscarTempBtn').addEventListener('click', buscar);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+  input.focus();
+}
+
+function renderBusqueda(zona, lista, serie, owned) {
+  zona.innerHTML = lista.map((a, idx) => {
+    const img  = a.images?.jpg?.image_url || '';
+    const meta = [a.type, a.year, a.episodes ? a.episodes + ' ep.' : ''].filter(Boolean).join(' · ');
+    const yaEsta = owned.has(a.mal_id);
+    const proxima = codigoEmision(a.status) === 'proximamente';
+    const badge = proxima ? ' <span class="mal-result-badge">Próximamente</span>' : '';
+    return `
+      <div class="mal-result-item">
+        <img class="mal-result-img" src="${escapeHtml(img)}" alt="">
+        <div class="mal-result-info">
+          <div class="mal-result-title mq"><span class="mq__i">${escapeHtml(tituloMAL(a))}</span></div>
+          <div class="mal-result-meta">${escapeHtml(meta)}${badge}</div>
+        </div>
+        ${yaEsta
+          ? '<span class="mal-ya-esta" style="margin-left:auto">Ya la tienes</span>'
+          : `<button class="btn-primary" data-idx="${idx}" style="margin-left:auto">Añadir</button>`}
+      </div>`;
+  }).join('');
+
+  zona.querySelectorAll('button[data-idx]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const anime = lista[parseInt(btn.dataset.idx)];
+      await anadirTemporada({ serie, anime });
+      owned.add(anime.mal_id);
+      // Se re-pinta para que la que acaba de entrar figure como ya añadida y no
+      // se pueda duplicar de un doble clic.
+      renderBusqueda(zona, lista, serie, owned);
+    });
+  });
 }
 
 export function inicializarActualizarMal() {
