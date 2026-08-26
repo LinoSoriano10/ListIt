@@ -324,6 +324,10 @@ ipcMain.handle('estadisticas-generales', () => {
   return db.estadisticasGenerales();
 });
 
+ipcMain.handle('estadisticas-ampliadas', () => {
+  return db.estadisticasAmpliadas();
+});
+
 ipcMain.handle('actividad-por-mes', (_, limite) => {
   return db.actividadPorMes(limite || 12);
 });

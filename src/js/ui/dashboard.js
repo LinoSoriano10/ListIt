@@ -6,18 +6,165 @@ import { escapeHtml } from '../lib/escape.js';
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
 export async function cargarDashboard() {
-  const [stats, actividad, actividadDetalle] = await Promise.all([
+  const [stats, ampliadas, actividad, actividadDetalle] = await Promise.all([
     api.estadisticasGenerales(),
+    api.estadisticasAmpliadas(),
     api.actividadPorMes(12),
     api.obtenerActividad(20),
   ]);
-  renderKpis(stats);
+  renderKpis(stats, ampliadas);
   renderDonut(stats.porEstado);
   renderDonutServicios(stats.cobertura || { con_mal: 0, sin_servicio: 0 });
   renderBarTags(stats.tagStats);
   renderViendo(stats.viendo);
   renderActividad(actividad);
   renderActividadReciente(actividadDetalle);
+
+  renderBarras('barGeneros', ampliadas.porGenero,
+    'Ningún género todavía. Lanza «Sincronizar desde MAL» para traerlos.');
+  renderBarras('barEstudios', ampliadas.porEstudio, 'Sin datos de estudio.');
+  renderBarras('barDecadas',
+    (ampliadas.porDecada || []).map(d => ({ nombre: `${d.decada}s`, n: d.n })),
+    'Sin años registrados.');
+  renderPuntuaciones(ampliadas.puntuaciones);
+  renderMasLargas(ampliadas.masLargas);
+}
+
+// ── Barras horizontales reutilizables ─────────────────────────────────────────
+// Generalización de renderBarTags, que era el único que las dibujaba. Ahora las
+// comparten géneros, estudios y décadas, con el mismo aspecto de siempre.
+
+function barrasHorizontales(canvas, datos, { labelW = 96, barH = 20, gap = 6 } = {}) {
+  const padR = 42;
+  canvas.width  = canvas.parentElement.clientWidth || 320;
+  canvas.height = Math.max(datos.length * (barH + gap) + gap, barH + gap * 2);
+
+  const ctx  = canvas.getContext('2d');
+  const barW = canvas.width - labelW - 8 - padR;
+  const max  = Math.max(...datos.map(d => d.n), 1);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  datos.forEach((d, i) => {
+    const y = gap + i * (barH + gap);
+    const w = (d.n / max) * barW;
+
+    ctx.fillStyle = css('--s4') || '#2e2e48';
+    ctx.beginPath();
+    ctx.roundRect(labelW + 8, y, barW, barH, 4);
+    ctx.fill();
+
+    ctx.fillStyle = css('--accent') || '#7c3aed';
+    ctx.beginPath();
+    ctx.roundRect(labelW + 8, y, Math.max(w, 4), barH, 4);
+    ctx.fill();
+
+    ctx.fillStyle    = css('--muted') || '#7070a0';
+    ctx.font         = '11px system-ui';
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(recortar(ctx, d.nombre, labelW - 4), labelW, y + barH / 2);
+
+    ctx.fillStyle = css('--text') || '#eeeef8';
+    ctx.textAlign = 'left';
+    ctx.fillText(d.n, labelW + 8 + w + 5, y + barH / 2);
+  });
+}
+
+// Los nombres de estudio y de género son largos; recortarlos evita que pisen
+// la barra.
+function recortar(ctx, texto, ancho) {
+  let t = String(texto || '');
+  if (ctx.measureText(t).width <= ancho) return t;
+  while (t.length > 1 && ctx.measureText(t + '…').width > ancho) t = t.slice(0, -1);
+  return t + '…';
+}
+
+function renderBarras(idCanvas, datos, textoVacio) {
+  const canvas = document.getElementById(idCanvas);
+  if (!canvas) return;
+  const vacio = canvas.parentElement.querySelector('.dash-vacio');
+  const hay   = datos && datos.length > 0;
+
+  canvas.style.display = hay ? '' : 'none';
+  if (vacio) {
+    vacio.style.display = hay ? 'none' : '';
+    vacio.textContent   = textoVacio;
+  }
+  if (hay) barrasHorizontales(canvas, datos);
+}
+
+// ── Distribución de puntuaciones de MAL ───────────────────────────────────────
+
+function renderPuntuaciones(tramos) {
+  const canvas = document.getElementById('barPuntuaciones');
+  if (!canvas) return;
+  const vacio = canvas.parentElement.querySelector('.dash-vacio');
+  const hay = tramos && tramos.length > 0;
+
+  canvas.style.display = hay ? '' : 'none';
+  if (vacio) {
+    vacio.style.display = hay ? 'none' : '';
+    vacio.textContent   = 'Sin puntuaciones de MyAnimeList todavía.';
+  }
+  if (!hay) return;
+
+  // Escala fija de 1 a 10: los huecos se ven como huecos, y el gráfico no se
+  // reescala cada vez que entra una serie nueva.
+  const porTramo = new Map(tramos.map(t => [t.tramo, t.n]));
+  const datos = [];
+  for (let i = 1; i <= 10; i++) datos.push({ tramo: i, n: porTramo.get(i) || 0 });
+
+  const ctx = canvas.getContext('2d');
+  canvas.width  = canvas.parentElement.clientWidth || 320;
+  canvas.height = 120;
+  const padB = 20, gap = 6;
+  const barW  = (canvas.width - gap * (datos.length + 1)) / datos.length;
+  const max   = Math.max(...datos.map(d => d.n), 1);
+  const areaH = canvas.height - padB;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  datos.forEach((d, i) => {
+    const x = gap + i * (barW + gap);
+    const h = d.n === 0 ? 2 : Math.max((d.n / max) * (areaH - 16), 3);
+
+    ctx.fillStyle = d.n === 0 ? (css('--s4') || '#2e2e48') : (css('--accent') || '#7c3aed');
+    ctx.beginPath();
+    ctx.roundRect(x, areaH - h, barW, h, 3);
+    ctx.fill();
+
+    ctx.fillStyle    = css('--muted') || '#7070a0';
+    ctx.font         = '10px system-ui';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(d.tramo, x + barW / 2, areaH + 5);
+
+    if (d.n > 0) {
+      ctx.fillStyle    = css('--text') || '#eeeef8';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(d.n, x + barW / 2, areaH - h - 2);
+    }
+  });
+}
+
+// ── Las más largas ────────────────────────────────────────────────────────────
+
+function renderMasLargas(items) {
+  const el = document.getElementById('dashMasLargas');
+  if (!el) return;
+
+  const utiles = (items || []).filter(i => i.unidades > 0);
+  if (utiles.length === 0) {
+    el.innerHTML = '<div class="dash-vacio">Sin datos suficientes.</div>';
+    return;
+  }
+  const max = utiles[0].unidades;
+  el.innerHTML = utiles.map(i => `
+    <div class="dash-larga">
+      <span class="dash-larga-t">${escapeHtml(i.titulo)}</span>
+      <span class="dash-larga-bar"><span style="width:${Math.round((i.unidades / max) * 100)}%"></span></span>
+      <span class="dash-larga-n">${i.unidades}</span>
+    </div>`).join('');
 }
 
 // ── A.8 Cobertura de servicios externos ──────────────────────────────────────
@@ -88,7 +235,7 @@ function renderDonutServicios(cobertura) {
 
 // ── KPIs ──────────────────────────────────────────────────────────────────────
 
-function renderKpis(stats) {
+function renderKpis(stats, ampliadas) {
   const viendo     = stats.porEstado.find(e => e.estado === 'viendo')?.n     || 0;
   const completado = stats.porEstado.find(e => e.estado === 'completado')?.n || 0;
   const horas      = Math.round(stats.minutos / 60);
@@ -111,9 +258,32 @@ function renderKpis(stats) {
         ${horas.toLocaleString('es')}
         <span style="font-size:15px;font-weight:400;color:var(--muted)"> h</span>
       </div>
-      <div class="dash-kpi-label">Horas estimadas</div>
+      <div class="dash-kpi-label">Horas estimadas${notaExcluidas(stats)}</div>
+    </div>
+    <div class="dash-kpi">
+      <div class="dash-kpi-num">
+        ${tasaFinalizacion(ampliadas)}
+        <span style="font-size:15px;font-weight:400;color:var(--muted)"> %</span>
+      </div>
+      <div class="dash-kpi-label">De lo empezado, terminado</div>
     </div>
   `;
+}
+
+// Las horas dejan fuera lo que no se ve (manwa, novelas). Decirlo evita que la
+// cifra parezca mal calculada: descartar entradas en silencio haría poco fiable
+// el número, que es justo lo que se quería arreglar.
+function notaExcluidas(stats) {
+  const n = stats.tiempo?.excluidas || 0;
+  if (!n) return '';
+  return ` <span class="dash-kpi-nota" title="Su tipo de contenido no cuenta como tiempo de visionado">· ${n} sin contar</span>`;
+}
+
+function tasaFinalizacion(ampliadas) {
+  const e = ampliadas?.empezadas || {};
+  const total = (e.completadas || 0) + (e.abandonadas || 0) + (e.en_curso || 0);
+  if (!total) return 0;
+  return Math.round(((e.completadas || 0) / total) * 100);
 }
 
 // ── Donut por estado ──────────────────────────────────────────────────────────

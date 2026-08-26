@@ -1432,6 +1432,52 @@ textarea { resize: vertical; min-height: 72px; }
   margin: 0 0 10px;
   line-height: 1.6;
 }
+/* Estadísticas ampliadas del dashboard */
+.dash-vacio {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 14px 2px;
+  line-height: 1.5;
+}
+.dash-kpi-nota {
+  font-size: 10px;
+  color: var(--muted);
+  opacity: .8;
+  cursor: help;
+}
+.dash-larga {
+  display: grid;
+  grid-template-columns: 1fr 90px 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+}
+.dash-larga-t {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-larga-bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--s4);
+  overflow: hidden;
+}
+.dash-larga-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+}
+.dash-larga-n {
+  text-align: right;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 /* Lista de tipos de contenido en Ajustes */
 .tipos-lista { display: flex; flex-direction: column; gap: 8px; }
 .tipo-fila {

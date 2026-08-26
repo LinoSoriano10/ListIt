@@ -652,6 +652,61 @@ function estadisticasGenerales() {
   };
 }
 
+/**
+ * Estadísticas de segundo nivel. Casi todo sale de columnas que ya existían
+ * (estudio, anio, score_mal); solo el reparto por género necesita que se haya
+ * pasado la sincronización masiva al menos una vez.
+ */
+function estadisticasAmpliadas() {
+  const porGenero = db.prepare(`
+    SELECT g.nombre, COUNT(cg.contenido_id) AS n
+    FROM generos g JOIN contenido_generos cg ON cg.genero_id = g.id
+    GROUP BY g.nombre ORDER BY n DESC, g.nombre LIMIT 14
+  `).all();
+
+  const porEstudio = db.prepare(`
+    SELECT estudio AS nombre, COUNT(*) AS n
+    FROM contenido WHERE estudio IS NOT NULL AND estudio != ''
+    GROUP BY estudio ORDER BY n DESC, estudio LIMIT 12
+  `).all();
+
+  // La década sale del año propio o, si falta, del año de estreno de MAL.
+  const porDecada = db.prepare(`
+    SELECT (CAST(anio_efectivo / 10 AS INTEGER) * 10) AS decada, COUNT(*) AS n
+    FROM (
+      SELECT COALESCE(anio, CAST(substr(fecha_estreno, -4) AS INTEGER)) AS anio_efectivo
+      FROM contenido
+    )
+    WHERE anio_efectivo IS NOT NULL AND anio_efectivo > 1900
+    GROUP BY decada ORDER BY decada
+  `).all();
+
+  // Puntuación de MAL agrupada en tramos de medio punto.
+  const puntuaciones = db.prepare(`
+    SELECT CAST(score_mal AS INTEGER) AS tramo, COUNT(*) AS n
+    FROM contenido WHERE score_mal IS NOT NULL AND score_mal > 0
+    GROUP BY tramo ORDER BY tramo
+  `).all();
+
+  const empezadas = db.prepare(`
+    SELECT
+      SUM(CASE WHEN estado = 'completado'  THEN 1 ELSE 0 END) AS completadas,
+      SUM(CASE WHEN estado = 'abandonado'  THEN 1 ELSE 0 END) AS abandonadas,
+      SUM(CASE WHEN estado IN ('viendo','en_pausa') THEN 1 ELSE 0 END) AS en_curso
+    FROM contenido
+  `).get();
+
+  const masLargas = db.prepare(`
+    SELECT c.titulo, c.tipo,
+      COALESCE((SELECT SUM(e.episodios_totales) FROM entregas e
+                WHERE e.contenido_id = c.id AND e.no_emitido = 0), c.episodios_totales) AS unidades
+    FROM contenido c
+    ORDER BY unidades DESC LIMIT 8
+  `).all();
+
+  return { porGenero, porEstudio, porDecada, puntuaciones, empezadas, masLargas };
+}
+
 function actividadPorMes(limite = 12) {
   return db.prepare(`
     SELECT strftime('%Y-%m', updated_at) AS mes, COUNT(*) AS n
@@ -1322,6 +1377,7 @@ module.exports = {
   obtenerEntregasNoEmitidasCandidatas,
   eliminarEntrega,
   estadisticasGenerales,
+  estadisticasAmpliadas,
   actividadPorMes,
   actualizarTag,
   contarPorTag,
