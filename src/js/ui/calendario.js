@@ -98,20 +98,30 @@ export async function cargarCalendario() {
 }
 
 function tarjeta(f, ahora) {
-  const emitido  = f.fecha_utc <= ahora;
+  const emitido = f.fecha_utc <= ahora;
+  // `vistos` es el progreso de ESA temporada, y el episodio también va numerado
+  // dentro de ella, así que la comparación es directa.
   const atrasado = emitido && f.episodio > (f.vistos || 0);
 
   let marca = '';
   if (!emitido)      marca = '<span class="cal-marca cal-marca--proximo">próximo</span>';
   else if (atrasado) marca = '<span class="cal-marca cal-marca--pendiente">sin ver</span>';
 
+  // La temporada solo se enseña si aporta algo: en una serie de una sola
+  // temporada, un "T1" en cada tarjeta es ruido.
+  const temporada = f.temporada && f.temporada !== 'T1'
+    ? `<span class="cal-item-temp">${escapeHtml(f.temporada)}</span> ` : '';
+
+  const detalle = `${f.titulo}${f.temporada ? ' · ' + f.temporada : ''} · episodio ${f.episodio}`
+    + (atrasado ? ` (vas por el ${f.vistos || 0})` : '');
+
   return `
     <div class="cal-item${atrasado ? ' cal-item--atrasado' : ''}" data-id="${f.contenido_id}"
-         title="${escapeHtml(f.titulo)} · episodio ${f.episodio}">
+         title="${escapeHtml(detalle)}">
       <img class="cal-item-img" src="${escapeHtml(getImageSrc(f.imagen))}" alt="">
       <div class="cal-item-info">
         <div class="cal-item-tit">${escapeHtml(f.titulo)}</div>
-        <div class="cal-item-meta">ep ${f.episodio} · ${horaDe(f.fecha_utc)} ${marca}</div>
+        <div class="cal-item-meta">${temporada}ep ${f.episodio} · ${horaDe(f.fecha_utc)} ${marca}</div>
       </div>
     </div>`;
 }
@@ -136,7 +146,7 @@ export async function refrescarCalendario() {
     if (r.series === 0) {
       toast.info('No sigues ninguna serie en emisión ahora mismo');
     } else {
-      toast.success(`${r.episodios} episodios de ${r.series} series`);
+      toast.success(`${r.episodios} episodios · ${r.temporadas} temporadas de ${r.series} series`);
     }
   } else if (r.codigo === 'desactivada') {
     // AniList apaga su API a veces. Se sigue mostrando lo ya guardado.

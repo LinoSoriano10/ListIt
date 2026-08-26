@@ -1034,15 +1034,41 @@ db.prepare(`
 // el calendario se queda desactualizado pero sigue sirviendo, en vez de romperse.
 // Es la diferencia entre esto y raspar webs.
 
+// El calendario va por TEMPORADA, no por serie: los episodios se numeran dentro
+// de cada temporada (Tanya II va por el 7, no por el 19), y el progreso del
+// usuario también se guarda por entrega. `entrega_id = 0` significa la propia
+// entrada, para lo que no tiene temporadas (películas).
 db.prepare(`
   CREATE TABLE IF NOT EXISTS emisiones (
     contenido_id INTEGER NOT NULL,
+    entrega_id   INTEGER NOT NULL DEFAULT 0,
     episodio     INTEGER NOT NULL,
     fecha_utc    INTEGER NOT NULL,
-    PRIMARY KEY (contenido_id, episodio),
+    PRIMARY KEY (contenido_id, entrega_id, episodio),
     FOREIGN KEY (contenido_id) REFERENCES contenido(id) ON DELETE CASCADE
   )
 `).run();
+
+// Migración: la primera versión de la tabla no distinguía temporadas, así que
+// dos temporadas de la misma serie se pisaban en el episodio 8. Se rehace: es
+// caché reconstruible desde AniList, no hay nada que conservar.
+{
+  const cols = db.prepare('PRAGMA table_info(emisiones)').all().map(c => c.name);
+  if (!cols.includes('entrega_id')) {
+    db.prepare('DROP TABLE emisiones').run();
+    db.prepare(`
+      CREATE TABLE emisiones (
+        contenido_id INTEGER NOT NULL,
+        entrega_id   INTEGER NOT NULL DEFAULT 0,
+        episodio     INTEGER NOT NULL,
+        fecha_utc    INTEGER NOT NULL,
+        PRIMARY KEY (contenido_id, entrega_id, episodio),
+        FOREIGN KEY (contenido_id) REFERENCES contenido(id) ON DELETE CASCADE
+      )
+    `).run();
+    console.log('[calendario] tabla de emisiones rehecha para distinguir temporadas');
+  }
+}
 
 db.prepare('CREATE INDEX IF NOT EXISTS idx_emisiones_fecha ON emisiones(fecha_utc)').run();
 
@@ -1109,23 +1135,28 @@ function grafoGeneros() {
 /**
  * Reemplaza el calendario conocido de una entrada.
  */
-const guardarEmisiones = db.transaction((contenidoId, episodios, anilistId, ventana) => {
+const guardarEmisiones = db.transaction((contenidoId, entregaId, episodios, ventana) => {
+  const eid = Number(entregaId) || 0;
+
   // Solo se reemplaza lo que hay dentro de la ventana consultada: las semanas
   // descargadas en refrescos anteriores siguen ahí, así que navegar hacia atrás
   // en el calendario sigue mostrando datos aunque AniList esté caído.
   if (ventana && Number.isFinite(ventana.desde) && Number.isFinite(ventana.hasta)) {
-    db.prepare('DELETE FROM emisiones WHERE contenido_id = ? AND fecha_utc >= ? AND fecha_utc < ?')
-      .run(contenidoId, ventana.desde, ventana.hasta);
+    db.prepare('DELETE FROM emisiones WHERE contenido_id = ? AND entrega_id = ? AND fecha_utc >= ? AND fecha_utc < ?')
+      .run(contenidoId, eid, ventana.desde, ventana.hasta);
   } else {
-    db.prepare('DELETE FROM emisiones WHERE contenido_id = ?').run(contenidoId);
+    db.prepare('DELETE FROM emisiones WHERE contenido_id = ? AND entrega_id = ?').run(contenidoId, eid);
   }
-  const ins = db.prepare('INSERT OR REPLACE INTO emisiones (contenido_id, episodio, fecha_utc) VALUES (?, ?, ?)');
+
+  const ins = db.prepare(
+    'INSERT OR REPLACE INTO emisiones (contenido_id, entrega_id, episodio, fecha_utc) VALUES (?, ?, ?, ?)');
   for (const e of episodios || []) {
     if (!Number.isFinite(e?.episodio) || !Number.isFinite(e?.fecha_utc)) continue;
-    ins.run(contenidoId, e.episodio, e.fecha_utc);
+    ins.run(contenidoId, eid, e.episodio, e.fecha_utc);
   }
-  db.prepare("UPDATE contenido SET anilist_id = COALESCE(?, anilist_id), emision_actualizada = datetime('now','localtime') WHERE id = ?")
-    .run(anilistId || null, contenidoId);
+
+  db.prepare("UPDATE contenido SET emision_actualizada = datetime('now','localtime') WHERE id = ?")
+    .run(contenidoId);
 });
 
 /**
@@ -1133,13 +1164,39 @@ const guardarEmisiones = db.transaction((contenidoId, episodios, anilistId, vent
  * Son un puñado, no toda la biblioteca.
  */
 function entradasParaCalendario() {
+  // Se consulta por TEMPORADA, con el mal_id de cada una.
+  //
+  // `contenido.mal_id` es el de la primera temporada, y su `estado_emision` es
+  // el de esa temporada: en Saga of Tanya the Evil dice "Finalizado" porque la
+  // T1 acabó en 2017, aunque la T2 se esté emitiendo ahora. Filtrar por ahí
+  // dejaba fuera toda franquicia cuya temporada en emisión no fuera la primera
+  // — 9 de las 14 de la biblioteca.
+  //
+  // La marca correcta es `emision_franquicia`, que es la que muestra la ficha.
+  // Se mantiene también `estado_emision` por si la franquicia no está marcada.
+  const condicion = `
+    c.estado != 'abandonado'
+    AND (c.emision_franquicia = 'en_emision' OR c.estado_emision = 'En emisión')`;
+
   return db.prepare(`
-    SELECT id, titulo, mal_id, anilist_id, emision_actualizada
-    FROM contenido
-    WHERE mal_id IS NOT NULL
-      AND estado_emision = 'En emisión'
-      AND estado IN ('viendo', 'pendiente')
-    ORDER BY titulo
+    SELECT c.id AS contenido_id, e.id AS entrega_id, e.mal_id,
+           c.titulo, e.numero, e.titulo AS titulo_entrega
+    FROM contenido c
+    JOIN entregas e ON e.contenido_id = c.id
+    WHERE e.mal_id IS NOT NULL AND ${condicion}
+
+    UNION ALL
+
+    -- Lo que no tiene temporadas con mal_id propio (películas, entradas sueltas)
+    -- se consulta con el mal_id de la entrada. entrega_id = 0 la identifica.
+    SELECT c.id, 0, c.mal_id, c.titulo, '', ''
+    FROM contenido c
+    WHERE c.mal_id IS NOT NULL AND ${condicion}
+      AND NOT EXISTS (
+        SELECT 1 FROM entregas e2 WHERE e2.contenido_id = c.id AND e2.mal_id IS NOT NULL
+      )
+
+    ORDER BY titulo, numero
   `).all();
 }
 
@@ -1148,14 +1205,18 @@ function entradasParaCalendario() {
  * lado para poder marcar lo que lleva de retraso.
  */
 function obtenerCalendario(desdeUtc, hastaUtc) {
+  // `vistos` sale de la temporada concreta, no de la suma de la serie: el
+  // episodio 8 del calendario es el 8 de esa temporada.
   return db.prepare(`
-    SELECT e.contenido_id, e.episodio, e.fecha_utc,
+    SELECT em.contenido_id, em.entrega_id, em.episodio, em.fecha_utc,
            c.titulo, c.imagen, c.estado, c.tipo,
-           COALESCE((SELECT SUM(en.episodio_actual) FROM entregas en WHERE en.contenido_id = c.id), c.episodio_actual) AS vistos
-    FROM emisiones e
-    JOIN contenido c ON c.id = e.contenido_id
-    WHERE e.fecha_utc >= ? AND e.fecha_utc < ?
-    ORDER BY e.fecha_utc
+           en.numero AS temporada,
+           COALESCE(en.episodio_actual, c.episodio_actual, 0) AS vistos
+    FROM emisiones em
+    JOIN contenido c ON c.id = em.contenido_id
+    LEFT JOIN entregas en ON en.id = em.entrega_id
+    WHERE em.fecha_utc >= ? AND em.fecha_utc < ?
+    ORDER BY em.fecha_utc
   `).all(desdeUtc, hastaUtc);
 }
 

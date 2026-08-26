@@ -420,18 +420,22 @@ ipcMain.handle('calendario-refrescar', async () => {
     const resueltos = await anilist.resolverIds(entradas.map(e => e.mal_id));
     const porMal    = new Map(resueltos.map(r => [r.malId, r]));
 
-    // De id de AniList a entrada local, para repartir los episodios luego.
-    const porAnilist = new Map();
+    // Cada fila es una TEMPORADA con su propio mal_id. Varias pueden compartir
+    // id de AniList solo si estuvieran duplicadas, así que se agrupa por id de
+    // AniList y se reparte a todas las temporadas que lo usen.
+    const temporadasPorAnilist = new Map();
     for (const e of entradas) {
       const r = porMal.get(e.mal_id);
-      if (r) porAnilist.set(r.anilistId, e);
+      if (!r) continue;
+      if (!temporadasPorAnilist.has(r.anilistId)) temporadasPorAnilist.set(r.anilistId, []);
+      temporadasPorAnilist.get(r.anilistId).push(e);
     }
-    if (porAnilist.size === 0) {
+    if (temporadasPorAnilist.size === 0) {
       return { ok: true, series: 0, episodios: 0, sinCorrespondencia: entradas.length };
     }
 
     const episodios = await anilist.calendarioEnVentana(
-      [...porAnilist.keys()], ventana.desde, ventana.hasta);
+      [...temporadasPorAnilist.keys()], ventana.desde, ventana.hasta);
 
     const agrupados = new Map();
     for (const ep of episodios) {
@@ -439,18 +443,22 @@ ipcMain.handle('calendario-refrescar', async () => {
       agrupados.get(ep.anilistId).push({ episodio: ep.episodio, fecha_utc: ep.fecha_utc });
     }
 
-    // Se guardan también las series sin episodios en la ventana: así queda
-    // registrado su anilist_id y la marca de refresco.
+    // Se guardan también las temporadas sin episodios en la ventana: así queda
+    // constancia de que se consultaron y no parece que falten datos.
     let total = 0;
-    for (const [anilistId, entrada] of porAnilist) {
+    const series = new Set();
+    for (const [anilistId, temporadas] of temporadasPorAnilist) {
       const lista = agrupados.get(anilistId) || [];
-      db.guardarEmisiones(entrada.id, lista, anilistId, ventana);
+      for (const t of temporadas) {
+        db.guardarEmisiones(t.contenido_id, t.entrega_id, lista, ventana);
+        series.add(t.contenido_id);
+      }
       total += lista.length;
     }
 
-    log.info(`calendario: ${total} episodios de ${porAnilist.size} series`);
-    return { ok: true, series: porAnilist.size, episodios: total,
-             sinCorrespondencia: entradas.length - porAnilist.size };
+    log.info(`calendario: ${total} episodios · ${temporadasPorAnilist.size} temporadas · ${series.size} series`);
+    return { ok: true, series: series.size, temporadas: temporadasPorAnilist.size,
+             episodios: total, sinCorrespondencia: entradas.length - resueltos.length };
   } catch (err) {
     return {
       ok: false,

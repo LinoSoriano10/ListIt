@@ -60,9 +60,8 @@ window.events?.on('biblioteca-recargada', () => {
 // ─── Filtros del sidebar ──────────────────────────────────
 document.querySelectorAll('.filter-btn[data-estado]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn[data-estado]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
     state.filtroEstado = btn.dataset.estado;
+    // El resaltado lo aplica mostrarVista(), al que llega cargarContenido().
     cargarContenido($('searchBar').value);
   });
 });
@@ -190,16 +189,12 @@ document.addEventListener('keydown', e => {
 
 // ─── Dashboard ────────────────────────────────────────────
 $('btnDashboard').addEventListener('click', async () => {
-  document.querySelectorAll('.filter-btn-dashboard').forEach(b => b.classList.remove('active'));
-  $('btnDashboard').classList.add('active');
   mostrarVista('dashboard');
   await cargarDashboard();
 });
 
 // ─── Calendario ───────────────────────────────────────────
 $('btnCalendario').addEventListener('click', async () => {
-  document.querySelectorAll('.filter-btn-dashboard').forEach(b => b.classList.remove('active'));
-  $('btnCalendario').classList.add('active');
   mostrarVista('calendario');
   await cargarCalendario();
 });

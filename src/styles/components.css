@@ -1518,6 +1518,14 @@ textarea { resize: vertical; min-height: 72px; }
   -webkit-box-orient: vertical;
 }
 .cal-item-meta { font-size: 10px; color: var(--muted); }
+.cal-item-temp {
+  display: inline-block;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--s4);
+  color: var(--accent2);
+  font-weight: 700;
+}
 .cal-marca {
   display: inline-block;
   margin-left: 3px;
