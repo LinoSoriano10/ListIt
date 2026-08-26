@@ -781,6 +781,17 @@ function actualizarCamposMAL(contenidoId, mal) {
     db.prepare(`UPDATE contenido SET ${sets.join(', ')}, updated_at = datetime('now','localtime') WHERE id = @id`).run(params);
   }
 
+  // Géneros. Van aparte porque son una relación, no una columna. Esto es lo que
+  // hace que rellenar toda la biblioteca sea gratis: la sincronización masiva ya
+  // recorre cada entrada con mal_id y pasa por aquí.
+  if (Array.isArray(mal.genres) && mal.genres.length > 0) {
+    const nombres = mal.genres.map(g => g?.name).filter(Boolean);
+    const antes   = obtenerGeneros(contenidoId).map(g => g.nombre).sort().join('|');
+    const despues = [...nombres].sort().join('|');
+    setGeneros(contenidoId, nombres);
+    if (antes !== despues) cambios.push('géneros');
+  }
+
   return { cambios, episodios_actualizados };
 }
 
@@ -940,6 +951,159 @@ function actualizarTipo(clave, campos = {}) {
   return db.prepare(`UPDATE tipos_contenido SET ${sets.join(', ')} WHERE clave = @clave`).run(params);
 }
 
+// ── Géneros ───────────────────────────────────────────────────────────────────
+// Mismo patrón que tags/contenido_tags, que ya estaba resuelto. Los géneros los
+// aporta MyAnimeList y se rellenan solos al sincronizar, así que aquí no hay
+// nada que el usuario tenga que mantener a mano.
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS generos (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT UNIQUE NOT NULL
+  )
+`).run();
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS contenido_generos (
+    contenido_id INTEGER NOT NULL,
+    genero_id    INTEGER NOT NULL,
+    PRIMARY KEY (contenido_id, genero_id),
+    FOREIGN KEY (contenido_id) REFERENCES contenido(id) ON DELETE CASCADE,
+    FOREIGN KEY (genero_id)    REFERENCES generos(id)   ON DELETE CASCADE
+  )
+`).run();
+
+// ── Calendario de emisión ─────────────────────────────────────────────────────
+// Fecha exacta de cada episodio, tal y como la publica AniList. Se guarda en
+// local a propósito: si AniList vuelve a caerse —ya lo hizo en agosto de 2026—
+// el calendario se queda desactualizado pero sigue sirviendo, en vez de romperse.
+// Es la diferencia entre esto y raspar webs.
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS emisiones (
+    contenido_id INTEGER NOT NULL,
+    episodio     INTEGER NOT NULL,
+    fecha_utc    INTEGER NOT NULL,
+    PRIMARY KEY (contenido_id, episodio),
+    FOREIGN KEY (contenido_id) REFERENCES contenido(id) ON DELETE CASCADE
+  )
+`).run();
+
+db.prepare('CREATE INDEX IF NOT EXISTS idx_emisiones_fecha ON emisiones(fecha_utc)').run();
+
+{
+  const cols = db.prepare('PRAGMA table_info(contenido)').all().map(c => c.name);
+  if (!cols.includes('anilist_id'))          db.prepare('ALTER TABLE contenido ADD COLUMN anilist_id INTEGER').run();
+  if (!cols.includes('emision_actualizada')) db.prepare("ALTER TABLE contenido ADD COLUMN emision_actualizada TEXT DEFAULT ''").run();
+}
+
+/**
+ * Sustituye los géneros de una entrada. Recibe nombres; crea los que falten.
+ */
+const setGeneros = db.transaction((contenidoId, nombres) => {
+  db.prepare('DELETE FROM contenido_generos WHERE contenido_id = ?').run(contenidoId);
+  const insertaGenero = db.prepare('INSERT OR IGNORE INTO generos (nombre) VALUES (?)');
+  const buscaGenero   = db.prepare('SELECT id FROM generos WHERE nombre = ?');
+  const enlaza        = db.prepare('INSERT OR IGNORE INTO contenido_generos (contenido_id, genero_id) VALUES (?, ?)');
+
+  for (const bruto of nombres || []) {
+    const nombre = String(bruto || '').trim();
+    if (!nombre) continue;
+    insertaGenero.run(nombre);
+    const g = buscaGenero.get(nombre);
+    if (g) enlaza.run(contenidoId, g.id);
+  }
+});
+
+function obtenerGeneros(contenidoId) {
+  return db.prepare(`
+    SELECT g.id, g.nombre FROM generos g
+    JOIN contenido_generos cg ON cg.genero_id = g.id
+    WHERE cg.contenido_id = ? ORDER BY g.nombre
+  `).all(contenidoId);
+}
+
+/**
+ * Géneros con cuántas entradas los usan. Alimenta las estadísticas y el grafo.
+ */
+function generosConUso() {
+  return db.prepare(`
+    SELECT g.id, g.nombre, COUNT(cg.contenido_id) AS n
+    FROM generos g
+    LEFT JOIN contenido_generos cg ON cg.genero_id = g.id
+    GROUP BY g.id, g.nombre
+    HAVING n > 0
+    ORDER BY n DESC, g.nombre
+  `).all();
+}
+
+/**
+ * Datos del grafo: géneros, entradas que tienen alguno, y sus enlaces.
+ */
+function grafoGeneros() {
+  return {
+    generos: generosConUso(),
+    series: db.prepare(`
+      SELECT DISTINCT c.id, c.titulo, c.estado, c.imagen
+      FROM contenido c JOIN contenido_generos cg ON cg.contenido_id = c.id
+    `).all(),
+    enlaces: db.prepare('SELECT contenido_id, genero_id FROM contenido_generos').all(),
+  };
+}
+
+/**
+ * Reemplaza el calendario conocido de una entrada.
+ */
+const guardarEmisiones = db.transaction((contenidoId, episodios, anilistId, ventana) => {
+  // Solo se reemplaza lo que hay dentro de la ventana consultada: las semanas
+  // descargadas en refrescos anteriores siguen ahí, así que navegar hacia atrás
+  // en el calendario sigue mostrando datos aunque AniList esté caído.
+  if (ventana && Number.isFinite(ventana.desde) && Number.isFinite(ventana.hasta)) {
+    db.prepare('DELETE FROM emisiones WHERE contenido_id = ? AND fecha_utc >= ? AND fecha_utc < ?')
+      .run(contenidoId, ventana.desde, ventana.hasta);
+  } else {
+    db.prepare('DELETE FROM emisiones WHERE contenido_id = ?').run(contenidoId);
+  }
+  const ins = db.prepare('INSERT OR REPLACE INTO emisiones (contenido_id, episodio, fecha_utc) VALUES (?, ?, ?)');
+  for (const e of episodios || []) {
+    if (!Number.isFinite(e?.episodio) || !Number.isFinite(e?.fecha_utc)) continue;
+    ins.run(contenidoId, e.episodio, e.fecha_utc);
+  }
+  db.prepare("UPDATE contenido SET anilist_id = COALESCE(?, anilist_id), emision_actualizada = datetime('now','localtime') WHERE id = ?")
+    .run(anilistId || null, contenidoId);
+});
+
+/**
+ * Entradas cuyo calendario merece refrescarse: en emisión y que sigues.
+ * Son un puñado, no toda la biblioteca.
+ */
+function entradasParaCalendario() {
+  return db.prepare(`
+    SELECT id, titulo, mal_id, anilist_id, emision_actualizada
+    FROM contenido
+    WHERE mal_id IS NOT NULL
+      AND estado_emision = 'En emisión'
+      AND estado IN ('viendo', 'pendiente')
+    ORDER BY titulo
+  `).all();
+}
+
+/**
+ * Episodios emitidos en una ventana de tiempo, con el progreso del usuario al
+ * lado para poder marcar lo que lleva de retraso.
+ */
+function obtenerCalendario(desdeUtc, hastaUtc) {
+  return db.prepare(`
+    SELECT e.contenido_id, e.episodio, e.fecha_utc,
+           c.titulo, c.imagen, c.estado, c.tipo,
+           COALESCE((SELECT SUM(en.episodio_actual) FROM entregas en WHERE en.contenido_id = c.id), c.episodio_actual) AS vistos
+    FROM emisiones e
+    JOIN contenido c ON c.id = e.contenido_id
+    WHERE e.fecha_utc >= ? AND e.fecha_utc < ?
+    ORDER BY e.fecha_utc
+  `).all(desdeUtc, hastaUtc);
+}
+
 db.prepare('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)').run();
 
 for (const [k, v] of [['tag_defecto', ''], ['orden_defecto', 'reciente'], ['theme', 'dark']]) {
@@ -1064,6 +1228,10 @@ function importarSnapshot(snap) {
     throw new Error(`Instantánea inválida: ${fallos.join('; ')}`);
   }
 
+  // Una instantánea de una versión anterior no trae las tablas nuevas; se
+  // rellenan vacías en vez de rechazarla.
+  const datos = snapshot.normalizar(snap);
+
   const aplicar = db.transaction(() => {
     // Hijos primero: así el borrado no depende del CASCADE y las claves
     // foráneas pueden quedarse activadas durante toda la operación.
@@ -1073,7 +1241,7 @@ function importarSnapshot(snap) {
 
     const resumen = {};
     for (const t of snapshot.ORDEN_INSERCION) {
-      const filas = snap.tablas[t] || [];
+      const filas = datos.tablas[t] || [];
       resumen[t] = filas.length;
       if (filas.length === 0) continue;
 
@@ -1117,6 +1285,13 @@ module.exports = {
   obtenerTipos,
   obtenerTiposConUso,
   actualizarTipo,
+  setGeneros,
+  obtenerGeneros,
+  generosConUso,
+  grafoGeneros,
+  guardarEmisiones,
+  entradasParaCalendario,
+  obtenerCalendario,
   obtenerContenido,
   obtenerPorId,
   guardarContenido,

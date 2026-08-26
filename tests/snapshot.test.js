@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   VERSION,
+  TABLAS_OPCIONALES,
   TABLAS,
   ORDEN_INSERCION,
   ORDEN_BORRADO,
   construir,
+  normalizar,
   validar,
   hash,
   comprimir,
@@ -188,5 +190,56 @@ describe('cabeEnFirestore', () => {
     // El documento lleva además hash, fechas y nombre del equipo.
     const r = cabeEnFirestore(Buffer.alloc(1));
     expect(r.limite).toBeLessThan(1048576);
+  });
+});
+
+describe('compatibilidad entre versiones', () => {
+  // Una instantánea generada por la versión anterior, sin las tablas que se
+  // añadieron después. Si el código nuevo la rechazara, sincronizar entre un
+  // ordenador actualizado y otro que no lo esté fallaría en silencio.
+  function instantaneaV1() {
+    const s = biblioteca();
+    s.version = 1;
+    for (const t of TABLAS_OPCIONALES) delete s.tablas[t];
+    return s;
+  }
+
+  it('una instantánea v1 sigue siendo válida', () => {
+    expect(validar(instantaneaV1())).toEqual([]);
+  });
+
+  it('normalizar rellena las tablas nuevas como vacías', () => {
+    const n = normalizar(instantaneaV1());
+    expect(n.version).toBe(VERSION);
+    for (const t of TABLAS_OPCIONALES) expect(n.tablas[t]).toEqual([]);
+    // Y no pierde nada de lo que sí traía.
+    expect(n.tablas.contenido).toHaveLength(2);
+    expect(n.tablas.entregas).toHaveLength(2);
+  });
+
+  it('rechaza una versión futura que no conoce', () => {
+    const s = biblioteca();
+    s.version = 99;
+    expect(validar(s)[0]).toMatch(/no soportada/);
+  });
+
+  it('una tabla obligatoria ausente sigue siendo un error', () => {
+    const s = instantaneaV1();
+    delete s.tablas.entregas;
+    expect(validar(s).some(f => f.includes('entregas'))).toBe(true);
+  });
+
+  it('detecta géneros con referencias rotas', () => {
+    const s = biblioteca();
+    s.tablas.generos = [{ id: 1, nombre: 'Action' }];
+    s.tablas.contenido_generos = [{ contenido_id: 1, genero_id: 999 }];
+    expect(validar(s).some(f => f.includes('género'))).toBe(true);
+  });
+
+  it('los géneros correctos no dan problema', () => {
+    const s = biblioteca();
+    s.tablas.generos = [{ id: 1, nombre: 'Action' }];
+    s.tablas.contenido_generos = [{ contenido_id: 1, genero_id: 1 }];
+    expect(validar(s)).toEqual([]);
   });
 });

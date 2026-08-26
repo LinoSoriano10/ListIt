@@ -9,6 +9,7 @@ const proveedorMal = require('./lib/proveedor-mal');
 const malOficial   = require('./lib/mal-oficial');
 const sync         = require('./lib/firestore-sync');
 const snapshot     = require('./lib/snapshot');
+const anilist      = require('./lib/anilist');
 
 // Backup diario antes de que la app abra la ventana
 const dbPath = path.join(app.getPath('userData'), 'listit.db');
@@ -374,6 +375,81 @@ ipcMain.handle('buscar-titulo-similar', (_, { titulo, excludeId }) => {
 
 ipcMain.handle('reordenar-entregas', (_, { contenidoId, idsOrdenados }) => {
   return db.reordenarEntregas(contenidoId, idsOrdenados);
+});
+
+// ── Calendario de emisión ─────────────────────────────────────────────────────
+// Los datos vienen de AniList, que publica la fecha exacta de cada episodio. La
+// API oficial de MAL solo da un hueco semanal recurrente, y eso falla en cuanto
+// una serie tiene un parón.
+//
+// Todo el refresco son dos consultas, sean 5 series o 50: una para traducir los
+// mal_id a ids de AniList y otra para pedir los episodios de la ventana.
+//
+// El resultado se guarda en local a propósito: si AniList vuelve a desactivar su
+// API, el calendario se queda viejo pero sigue sirviendo. Es la diferencia entre
+// esto y depender de raspar webs.
+
+const DIAS_ATRAS    = 30;
+const DIAS_ADELANTE = 60;
+
+ipcMain.handle('calendario-obtener', (_, { desde, hasta }) => {
+  return db.obtenerCalendario(desde, hasta);
+});
+
+ipcMain.handle('calendario-refrescar', async () => {
+  try {
+    const entradas = db.entradasParaCalendario();
+    if (entradas.length === 0) {
+      return { ok: true, series: 0, episodios: 0 };
+    }
+
+    const ahora  = Math.floor(Date.now() / 1000);
+    const ventana = {
+      desde: ahora - DIAS_ATRAS * 86400,
+      hasta: ahora + DIAS_ADELANTE * 86400,
+    };
+
+    const resueltos = await anilist.resolverIds(entradas.map(e => e.mal_id));
+    const porMal    = new Map(resueltos.map(r => [r.malId, r]));
+
+    // De id de AniList a entrada local, para repartir los episodios luego.
+    const porAnilist = new Map();
+    for (const e of entradas) {
+      const r = porMal.get(e.mal_id);
+      if (r) porAnilist.set(r.anilistId, e);
+    }
+    if (porAnilist.size === 0) {
+      return { ok: true, series: 0, episodios: 0, sinCorrespondencia: entradas.length };
+    }
+
+    const episodios = await anilist.calendarioEnVentana(
+      [...porAnilist.keys()], ventana.desde, ventana.hasta);
+
+    const agrupados = new Map();
+    for (const ep of episodios) {
+      if (!agrupados.has(ep.anilistId)) agrupados.set(ep.anilistId, []);
+      agrupados.get(ep.anilistId).push({ episodio: ep.episodio, fecha_utc: ep.fecha_utc });
+    }
+
+    // Se guardan también las series sin episodios en la ventana: así queda
+    // registrado su anilist_id y la marca de refresco.
+    let total = 0;
+    for (const [anilistId, entrada] of porAnilist) {
+      const lista = agrupados.get(anilistId) || [];
+      db.guardarEmisiones(entrada.id, lista, anilistId, ventana);
+      total += lista.length;
+    }
+
+    log.info(`calendario: ${total} episodios de ${porAnilist.size} series`);
+    return { ok: true, series: porAnilist.size, episodios: total,
+             sinCorrespondencia: entradas.length - porAnilist.size };
+  } catch (err) {
+    return {
+      ok: false,
+      codigo:  err?.codigo  || 'desconocido',
+      mensaje: err?.message || String(err),
+    };
+  }
 });
 
 // ── Tipos de contenido ────────────────────────────────────────────────────────

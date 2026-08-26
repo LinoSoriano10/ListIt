@@ -86,6 +86,11 @@ contextBridge.exposeInMainWorld('api', {
   // A.7 Sincronización masiva MAL
   obtenerEntradasConMalId: () => ipcRenderer.invoke('obtener-entradas-con-mal-id'),
 
+  // Calendario de emisión. Los datos vienen de AniList (fecha exacta por
+  // episodio) y se guardan en local, así que siguen sirviendo si su API cae.
+  calendarioObtener:   (desde, hasta) => ipcRenderer.invoke('calendario-obtener', { desde, hasta }),
+  calendarioRefrescar: ()             => ipcRenderer.invoke('calendario-refrescar'),
+
   // Tipos de contenido (anime, serie, película, manwa…). Cada uno declara su
   // unidad, su duración y si cuenta como tiempo de visionado.
   tiposObtener:    ()               => ipcRenderer.invoke('tipos-obtener'),
